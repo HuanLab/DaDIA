@@ -5,8 +5,8 @@
 #Copyright @ University of British Columbia
 ###############################################################
 #Part 1: Parameters for feature extraction
-DDA.directory <- "C:/Users/User/Desktop/SAM DONT TOUCH DONT DELETE/DaDIA_20200807/DaDIA_DDA"
-DIA.directory <- "C:/Users/User/Desktop/SAM DONT TOUCH DONT DELETE/DaDIA_20200807/DaDIA_SWATH"
+DDA.directory <- "C:/Users/User/Desktop/DDA"
+DIA.directory <- "C:/Users/User/Desktop/DIA"
 mass.tol <- 10 #mz tolerance in ppm
 mass.const.tol <- 0 #mz tolerance in constant value: used in MS2 spectra matching
 rt.tol <- 60 #rt tolerance in seconds
