@@ -13,7 +13,7 @@ plot.DDA.mztol <- 0.1
 plot.DDA.rttol <- 30
 perform.MS2.extraction <- TRUE # whether to perform MS2 extraction and feature annotation
 ###############################################################
-DDA.directory <- "C:/Users/User/Desktop/SAM DONT TOUCH DONT DELETE/leukemiaApplication/DDA_ONLY"
+DDA.directory <- "C:/Users/User/Desktop/"
 ###############################################################
 # Database search (dot product)
 ms1.tol <- 0.01
