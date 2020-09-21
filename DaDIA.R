@@ -1,36 +1,7 @@
-
 ###############################################################
 #This is the main script to perform DDA aided DIA feature extraction and annotation
 #Tao Huan, Sam Shen, Jian Guo 2020-07-28
 #Copyright @ University of British Columbia
-###############################################################
-#Part 1: Parameters for feature extraction
-DDA.directory <- "C:/Users/User/Desktop/DDA"
-DIA.directory <- "C:/Users/User/Desktop/DIA"
-mass.tol <- 10 #mz tolerance in ppm
-mass.const.tol <- 0 #mz tolerance in constant value: used in MS2 spectra matching
-rt.tol <- 60 #rt tolerance in seconds
-num.samples <- 3 ######IMPORTANT######## <------- enter how many DIA samples here #####
-plot.DaDIA <- TRUE #plot DaDIA features
-plot.DaDIA.mztol <- 0.5 #DaDIA feature plotting mz window width
-plot.DaDIA.rttol <- 30 #DaDIA feature plotting rt window width
-quantitative.method <- "maxo" #use max or integrated feature intensity
-# "maxo" = peak height
-# "into" = peak area
-###############################################################
-#Part 2: Parameters for database search (dot product)
-feature.annotation <- TRUE #annotate DaDIA features
-db.name <- "database.Rds" #annotation library name
-ms1.tol <- 0.01 #dot product calculation ms1 tolerance
-ms2.tol <- 0.02 #dot product calculation ms2 tolerance
-dot.product.threshold <- 0.1 #dot product annotation threshold
-match.number.threshold <- 1 #annotation match number threshold
-adduct_isotope.annotation <- TRUE #perform CAMERA annotation
-export.mgf <- TRUE #export individual MS2 spectra as .mgf
-combine.mgf <- TRUE #combine all exported .mgf files
-###############################################################
-DIA.unique <- 1 #do not change
-DDA.aid <- 2 #do not change
 ###############################################################
 print("Loading required packages ...")
 library(xcms) 
@@ -42,6 +13,57 @@ library(BiocGenerics)
 library(S4Vectors)
 library(ProtGenerics)
 print("Finished loading packages")
+###############################################################
+#Part 1: Parameters for feature extraction
+DDA.directory <- "C:/Users/User/Desktop/SAM DONT TOUCH DONT DELETE/DaDIAtestSciexData/DDA"
+DIA.directory <- "C:/Users/User/Desktop/SAM DONT TOUCH DONT DELETE/DaDIAtestSciexData/DIA"
+cwpDDA <- CentWaveParam(ppm=10,
+                        peakwidth=c(5,60),
+                        mzdiff = 0.01,
+                        snthresh = 6,
+                        integrate = 1,
+                        prefilter = c(3,100),
+                        noise = 100) #XCMS parameters for DDA feature extraction
+cwpDIA <- CentWaveParam(ppm=10,
+                        peakwidth=c(5,60),
+                        mzdiff = 0.01,
+                        snthresh = 6,
+                        integrate = 1,
+                        prefilter = c(3,100),
+                        noise = 100) #XCMS parameters for DIA feature extraction
+mass.tol <- 10 #mz tolerance in ppm: used in feature dereplication and MS2 matching
+mass.const.tol <- 0.05 #mz tolerance in constant value: used in feature rescue
+rt.tol <- 60 #rt tolerance in seconds
+num.samples <- 11 #enter how many DIA samples here
+plot.DaDIA <- TRUE #plot DaDIA features
+plot.DaDIA.mztol <- 0.5 #DaDIA feature plotting mz window width
+plot.DaDIA.rttol <- 30 #DaDIA feature plotting rt window width
+#Parameters for alignment
+bw <- 5
+minfrac <- 0.5 #retention time tolerace in minutes 
+mzwid <- 0.025 #mass tolerance
+max <- 100
+quantitative.method <- "maxo"
+# "maxo" = peak height
+# "into" = peak area
+###############################################################
+#Part 2: Parameters for database search (dot product)
+feature.annotation <- TRUE #annotate DaDIA features
+db.name <- "convertedLibrarPos.Rds" #annotation library name
+RDS <- TRUE
+# "TRUE" = database is in RDS format
+# "FALSE" = database is in MSP format
+ms1.tol <- 0.01 #dot product calculation ms1 tolerance
+ms2.tol <- 0.02 #dot product calculation ms2 tolerance
+dot.product.threshold <- 0.1 #dot product annotation threshold
+match.number.threshold <- 1 #annotation match number threshold
+adduct_isotope.annotation <- TRUE #perform CAMERA annotation
+export.mgf <- TRUE #export individual MS2 spectra as .mgf
+combine.mgf <- TRUE #combine all exported .mgf files
+###############################################################
+DIA.unique <- 1 #do not change
+DDA.aid <- 2 #do not change
+###############################################################
 
 # Calculate the number of cores
 no_cores <- detectCores() - 1
@@ -55,14 +77,7 @@ if(num.samples == 1){
   setwd(DDA.directory)
   dda_file <- list.files(pattern = ".mzXML")
   dda_data <- readMSData(dda_file, mode = "onDisk")
-  cwp <- CentWaveParam(ppm=10,
-                       peakwidth=c(5,60),
-                       mzdiff = 0.01,
-                       snthresh = 6,
-                       integrate = 1,
-                       prefilter = c(3,100),
-                       noise = 100)
-  dda_data <- findChromPeaks(dda_data, param = cwp) #DDA MS1 spectra
+  dda_data <- findChromPeaks(dda_data, param = cwpDDA) #DDA feature extraction
   dda_data_filtered <- filterMsLevel(dda_data, msLevel = 1L)
   xsetDDA <- as(dda_data_filtered, 'xcmsSet')
   
@@ -70,24 +85,17 @@ if(num.samples == 1){
   swath_file <- list.files(pattern = ".mzXML")
   swath_data <- readMSData(swath_file, mode = "onDisk")
   swath_data <- filterEmptySpectra(swath_data)
-  cwp <- CentWaveParam(ppm=10,
-                       peakwidth=c(5,60),
-                       mzdiff = 0.01,
-                       snthresh = 6,
-                       integrate = 1,
-                       prefilter = c(3,100),
-                       noise = 100)
-  swath_data <- findChromPeaks(swath_data, param = cwp) #DIA MS1 spectra
+  swath_data <- findChromPeaks(swath_data, param = cwpDIA) #DIA feature extraction
   swath_data_filtered <- filterMsLevel(swath_data, msLevel = 1L)
   xsetSWATH <- as(swath_data_filtered, 'xcmsSet')
   
-  #DDA guided DIA SWATH Extraction--------------------------------------------------------------
+  #DDA guided DIA SWATH Extraction
   DIAtable <- as.data.frame(xsetSWATH@peaks) #DIA features
   DDAtable <- as.data.frame(xsetDDA@peaks) #DDA features
   colnames(DIAtable)[ncol(DIAtable)] <- "DDA_DIA"
   DIAtable$DDA_DIA <- DIA.unique
   colnames(DDAtable)[ncol(DDAtable)] <- "present_in_DIA"
-  DDAtable$present_in_DIA <- FALSE #label all features as not present in DIA
+  DDAtable$present_in_DIA <- FALSE 
   
   #label DDA feature present in DIA as TRUE
   for(i in 1:nrow(DDAtable)){
@@ -101,17 +109,19 @@ if(num.samples == 1){
       DDAtable$present_in_DIA[i] <- TRUE
     }
   }
-  #extract features in DIA guided by DDA
+  #Rescue features in DIA guided by DDA
   xrawSWATH <- xcmsRaw(swath_file, profstep=0)
   uniqueDDAtable <- DDAtable[DDAtable$present_in_DIA == FALSE, ]
-  is.inDIA <- logical(length = nrow(uniqueDDAtable))
+  is.inDIA <- logical(length = nrow(uniqueDDAtable)) #vector with length of row numbers of unique DDA table
   inDIA.matrix <- data.frame(matrix(nrow = nrow(uniqueDDAtable), ncol = ncol(DIAtable)))
   colnames(inDIA.matrix) <- colnames(DIAtable)
   for (j in 1:nrow(uniqueDDAtable)){
-    mass.lower.limit <- uniqueDDAtable$mz[j] - 0.02
-    mass.upper.limit <- uniqueDDAtable$mz[j] + 0.02
+    mass.lower.limit <- uniqueDDAtable$mz[j] - mass.const.tol
+    mass.upper.limit <- uniqueDDAtable$mz[j] + mass.const.tol
     rt.lower.limit <- uniqueDDAtable$rt[j] - rt.tol
     rt.upper.limit <- uniqueDDAtable$rt[j] + rt.tol
+    # filter the features out of the retention time range
+    if(rt.lower.limit > tail(xrawSWATH@scantime, n=1) | rt.upper.limit > tail(xrawSWATH@scantime, n=1)) next  
     if(rt.lower.limit < xrawSWATH@scantime[1]+1){
       rt.lower.limit <- xrawSWATH@scantime[1]+1
     }
@@ -121,20 +131,20 @@ if(num.samples == 1){
     if(rt.upper.limit > tail(xrawSWATH@scantime, n=1)){
       rt.upper.limit <- tail(xrawSWATH@scantime, n=1) -1
     }
+    # filter the features out of the m/z range
     if(mass.lower.limit < xrawSWATH@mzrange[1]) next()
     if(mass.upper.limit > xrawSWATH@mzrange[2]) next()
     mzRange <- as.double(cbind(mass.lower.limit, mass.upper.limit))
     RTRange <- as.integer(cbind(rt.lower.limit, rt.upper.limit))
-    eeic <- getEIC(xrawSWATH, mzrange=mzRange, rtrange=RTRange)
+    eeic <- getEIC(xrawSWATH, mzrange=mzRange, rtrange=RTRange) #extracted EIC object
     
     eic.matrix <- as.data.frame(eeic@eic[["xcmsRaw"]][[1]][,"intensity"])
     eic.matrix <- eic.matrix[is.na(eic.matrix[,1])==FALSE,]
-    peak.int <- max(eic.matrix)
-    #avg.int <- (sum(eic.matrix) - putative.inDIA$into[j]) / (length(eic.matrix) - 1)
+    peak.int <- max(eic.matrix) #find the max intensity in the EIC
     
     if(is.na(peak.int)) next
     is.inDIA[j] <- TRUE
-    #Put level 3 features in featureTable
+    #Put rescued features in DaDIA featureTable
     inDIA.matrix[j,1]  <- uniqueDDAtable$mz[j]
     inDIA.matrix[j,2]  <- uniqueDDAtable$mz[j]
     inDIA.matrix[j,3]  <- uniqueDDAtable$mz[j]
@@ -153,19 +163,12 @@ if(num.samples == 1){
   write.csv(DaDIAtable, file = "DaDIAtable.csv")
   
 } else if(num.samples > 1){
-  #DDA guided DIA SWATH Extraction (multi-sample)--------------------------------------------------------------
+  #DDA guided DIA SWATH Extraction (multi-sample)
   print("Extracting DDA features ...")
   setwd(DDA.directory)
   dda_file <- list.files(pattern = ".mzXML")
   dda_data <- readMSData(dda_file, mode = "onDisk")
-  cwp <- CentWaveParam(ppm=10,
-                       peakwidth=c(5,60),
-                       mzdiff = 0.01,
-                       snthresh = 6,
-                       integrate = 1,
-                       prefilter = c(3,100),
-                       noise = 100)
-  dda_data <- findChromPeaks(dda_data, param = cwp, SnowParam()) #DDA MS1 spectra
+  dda_data <- findChromPeaks(dda_data, param = cwpDDA, SnowParam()) #DDA feature extraction
   dda_data_filtered <- filterMsLevel(dda_data, msLevel = 1L)
   xsetDDA <- as(dda_data_filtered, 'xcmsSet')
   print("Finished DDA feature extraction")
@@ -176,14 +179,7 @@ if(num.samples == 1){
   swath_file <- list.files(pattern = ".mzXML")
   swath_data <- readMSData(swath_file, mode = "onDisk")
   swath_data <- filterEmptySpectra(swath_data)
-  cwp <- CentWaveParam(ppm=10,
-                       peakwidth=c(5,60),
-                       mzdiff = 0.01,
-                       snthresh = 6,
-                       integrate = 1,
-                       prefilter = c(3,100),
-                       noise = 100)
-  swath_data <- findChromPeaks(swath_data, param = cwp, SnowParam()) #DIA MS1 spectra
+  swath_data <- findChromPeaks(swath_data, param = cwpDIA, SnowParam()) #DIA feature extraction
   swath_data_filtered <- filterMsLevel(swath_data, msLevel = 1L)
   xsetSWATH <- as(swath_data_filtered, 'xcmsSet')
   print("Finished SWATH feature extraction")
@@ -191,10 +187,10 @@ if(num.samples == 1){
   
   xsetSWATH@peaks <- cbind(xsetSWATH@peaks, DIA.unique)
   colnames(xsetSWATH@peaks)[ncol(xsetSWATH@peaks)] <- "DDA_DIA"
-  DIAtable <- as.data.frame(xsetSWATH@peaks) #DIA features
+  DIAtable <- as.data.frame(xsetSWATH@peaks) #generate data frame with DIA features
   
   print("Generating dereplicated DDA feature list ...")
-  dereplicatedDDAtable <- data.frame(matrix(ncol = 11, nrow = 0)) #DDA features
+  dereplicatedDDAtable <- data.frame(matrix(ncol = 11, nrow = 0)) #generate data frame with dereplicated DDA features
   rawDDAtable <- as.data.frame(xsetDDA@peaks)
   colnames(dereplicatedDDAtable) <- colnames(rawDDAtable)
   for(m in (1:nrow(xsetDDA@peaks))) {
@@ -208,7 +204,7 @@ if(num.samples == 1){
       dereplicatedDDAtable[nrow(dereplicatedDDAtable) + 1,] = rawDDAtable[m,]
     }
   }
-  dereplicatedDDAtable <- cbind(dereplicatedDDAtable, FALSE) #label all features as not present in DIA
+  dereplicatedDDAtable <- cbind(dereplicatedDDAtable, FALSE)
   colnames(dereplicatedDDAtable)[ncol(dereplicatedDDAtable)] <- "present_in_DIA"
   print("Finished generating dereplicated DDA feature list")
   print(Sys.time() - start_time)
@@ -218,7 +214,7 @@ if(num.samples == 1){
     #label DDA feature present in DIA as TRUE
     print(n)
     dereplicatedDDAtable$present_in_DIA <- FALSE
-    ssDIA <- DIAtable[DIAtable$sample == n, ]
+    ssDIA <- DIAtable[DIAtable$sample == n, ] # generate sample stratified DIA data frame
     for(i in 1:nrow(dereplicatedDDAtable)){
       mass.lower.limit <- dereplicatedDDAtable$mz[i] * (1 - mass.tol * 1e-6)
       mass.upper.limit <- dereplicatedDDAtable$mz[i] * (1 + mass.tol * 1e-6)
@@ -231,17 +227,19 @@ if(num.samples == 1){
       }
     }
     
-    #extract features in DIA guided by DDA
+    #rescue features in DIA guided by DDA
     xrawSWATH <- xcmsRaw(filepaths(xsetSWATH)[n],profstep=0)
     uniqueDDAtable <- dereplicatedDDAtable[dereplicatedDDAtable$present_in_DIA == FALSE, ]
     is.inDIA <- logical(length = nrow(uniqueDDAtable))
     inDIA.matrix <- data.frame(matrix(nrow = nrow(uniqueDDAtable), ncol = ncol(DIAtable)))
     colnames(inDIA.matrix) <- colnames(DIAtable)
     for (j in 1:nrow(uniqueDDAtable)){
-      mass.lower.limit <- uniqueDDAtable$mz[j] - 0.05
-      mass.upper.limit <- uniqueDDAtable$mz[j] + 0.05
+      mass.lower.limit <- uniqueDDAtable$mz[j] - mass.const.tol
+      mass.upper.limit <- uniqueDDAtable$mz[j] + mass.const.tol
       rt.lower.limit <- uniqueDDAtable$rt[j] - rt.tol
       rt.upper.limit <- uniqueDDAtable$rt[j] + rt.tol
+      # filter the features out of the retention time range
+      if(rt.lower.limit > tail(xrawSWATH@scantime, n=1) | rt.upper.limit > tail(xrawSWATH@scantime, n=1)) next  
       if(rt.lower.limit < xrawSWATH@scantime[1]+1){
         rt.lower.limit <- xrawSWATH@scantime[1]+1
       }
@@ -251,6 +249,7 @@ if(num.samples == 1){
       if(rt.upper.limit > tail(xrawSWATH@scantime, n=1)){
         rt.upper.limit <- tail(xrawSWATH@scantime, n=1) -1
       }
+      # filter the features out of the m/z range
       if(mass.lower.limit < xrawSWATH@mzrange[1]) next()
       if(mass.upper.limit > xrawSWATH@mzrange[2]) next()
       mzRange <- as.double(cbind(mass.lower.limit, mass.upper.limit))
@@ -260,11 +259,9 @@ if(num.samples == 1){
       eic.matrix <- as.data.frame(eeic@eic[["xcmsRaw"]][[1]][,"intensity"])
       eic.matrix <- eic.matrix[is.na(eic.matrix[,1])==FALSE,]
       peak.int <- max(eic.matrix)
-      #avg.int <- (sum(eic.matrix) - uniqueDDAtable$into[j]) / (length(eic.matrix) - 1)
-      
       if(is.na(peak.int)) next
       is.inDIA[j] <- TRUE
-      #Put level 3 features in featureTable
+      #Put rescued features in DaDIA table
       inDIA.matrix[j,1]  <- uniqueDDAtable$mz[j]
       inDIA.matrix[j,2]  <- uniqueDDAtable$mz[j]
       inDIA.matrix[j,3]  <- uniqueDDAtable$mz[j]
@@ -299,10 +296,10 @@ if(num.samples == 1){
   
   #ALIGNMENT 
   print("Aligning sample features ...")
-  xsetSWATH <- group(xsetSWATH, bw = 5, minfrac = 0.5, mzwid = 0.015, minsamp = 1, max = 100)
+  xsetSWATH <- group(xsetSWATH, bw = bw, minfrac = minfrac, mzwid = mzwid, minsamp = 1, max = max)
   xsetSWATH <- retcor(xsetSWATH, method = "obiwarp", profStep = 1)
-  xsetSWATH <- group(xsetSWATH, bw = 5, minfrac = 0.5, mzwid = 0.015, minsamp = 1, max = 100)
-  xsetSWATH <- fillPeaks(xsetSWATH)#You must make this work as gapfilling is a standard module in any software these days
+  xsetSWATH <- group(xsetSWATH, bw = bw, minfrac = minfrac, mzwid = mzwid, minsamp = 1, max = max)
+  xsetSWATH <- fillPeaks(xsetSWATH)
   XCMt <- data.frame(xsetSWATH@groups)
   xcmI <- groupval(xsetSWATH, value = quantitative.method)
   featureTable <- cbind(XCMt$mzmed, XCMt$rtmed, XCMt$rtmin, XCMt$rtmax, xcmI)
@@ -341,32 +338,10 @@ if(num.samples == 1){
     print(Sys.time() - start_time)
   }
   setwd(DIA.directory)
-  
-  
-  # if(plot.DaDIA){
-  #   for(n in 1:length(swath_file)){
-  #     setwd(DIA.directory)
-  #     dir.create(paste(n,"DaDIA_EIC",sep = "_"))
-  #     setwd(paste(n,"DaDIA_EIC",sep = "_"))
-  #     plot.matrix <- featureTable
-  #     xraw <- xcmsRaw(filepaths(xsetSWATH)[n],profstep=0)
-  #     for(k in 1:nrow(plot.matrix)){
-  #       rt.lower.limit <- plot.matrix$RT[k] - 30
-  #       rt.upper.limit <- plot.matrix$RT[k] + 30
-  #       mass.lower.limit <- plot.matrix$mz[k] - 0.01
-  #       mass.upper.limit <- plot.matrix$mz[k] + 0.01
-  #       png(file = paste0(plot.matrix$rt[k],"_", plot.matrix$mz[k],".png"), width = 480, height = 480)
-  #       eic <- plotEIC(xraw, mzrange = c(mass.lower.limit, mass.upper.limit), 
-  #                      rtrange = c(rt.lower.limit,rt.upper.limit))
-  #       dev.off()
-  #     }
-  #   }
-  # }
 }
 
-##Functions----------------------------------------------------------------------------------
-############
-# Dot product function
+#Functions--------------------------------------------------------------------------------------------
+#Dot product function
 dp.score <- function(x,y){
   if(nrow(x)==0 | nrow(y)==0){return(0)}
   x[,2] <- 100*x[,2]/max(x[,2])
@@ -398,7 +373,7 @@ dp.score <- function(x,y){
   return  <- c(score,match_No)
   return(return)
 }  
-
+#Single sample MS2 matching
 matchMS2 <- function(x, featuretable, msLevel = 2L, expandRt = 0, expandMz = 0, ppm = 0) {
   return.type <- "MSpectra"
   pks <- featuretable
@@ -435,7 +410,7 @@ matchMS2 <- function(x, featuretable, msLevel = 2L, expandRt = 0, expandMz = 0, 
   names(res) <- peak_ids
   return(res)
 }
-
+#Multi sample MS2 matching
 matchMS2multi <- function(dda_sample, alignedDaDIA, sample.num, msLevel = 2L, expandRt = 0, expandMz = 0, ppm = 0) {
   return.type <- "MSpectra"
   pks <- alignedDaDIA
@@ -477,13 +452,12 @@ matchMS2multi <- function(dda_sample, alignedDaDIA, sample.num, msLevel = 2L, ex
   return(res)
 }
 
-#------------------------------------------------------------------------------------------
+#MS2 deconvolution-----------------------------------------------------------------------------------
 if(feature.annotation == TRUE){
   if(num.samples == 1){
-    #DDA & DIA Extraction single sample--------------------------------------------------------------
-    #BiocManager::install("MSnbase")
+    #DDA & DIA Extraction single sample
     setwd(DIA.directory)
-    swath_setting_file <- list.files(pattern = ".txt") #headers cannot contain spaces
+    swath_setting_file <- list.files(pattern = ".txt") 
     swath_setting <- read.table(swath_setting_file, sep = "" , header = T , nrows = 100,
                                 na.strings ="", stringsAsFactors= F) 
     swath_setting$Targetmz <- with(swath_setting, (Minmz+Maxmz) / 2)
@@ -496,7 +470,7 @@ if(feature.annotation == TRUE){
     fData(swath_data)$isolationWindowLowerOffset <- tempoffset
     fData(swath_data)$isolationWindowUpperOffset <- tempoffset
     
-    
+    # This code is for DIA-AIF
     # length.pre.num <- length(swath_data@featureData@data[["precursorScanNum"]])-1
     # precursor.peaknum <- 0:length.pre.num
     # precursor.peaknum[seq(1,length(precursor.peaknum),2)] <- NA
@@ -511,13 +485,13 @@ if(feature.annotation == TRUE){
                           "isolationWindowLowerOffset",
                           "isolationWindowUpperOffset",
                           "msLevel", "retentionTime")]
-    #view isolation window mz
+    #view isolation window of mz
     isolationWindowLowerMz(swath_data)
     isolationWindowUpperMz(swath_data)
     #list the number of spectra that are recorded in each pocket/isolation window
     table(isolationWindowTargetMz(swath_data))
     
-    #MS2 spectra
+    #MS2 spectral assignment from DDA
     dda_spectra <- matchMS2(dda_data, DaDIAtable, expandRt = rt.tol, expandMz = mass.const.tol, ppm = mass.tol)
     DaDIAtable <- cbind(DaDIAtable, FALSE)
     colnames(DaDIAtable)[ncol(DaDIAtable)] <- "MS2_match"
@@ -549,16 +523,14 @@ if(feature.annotation == TRUE){
                                                                  paste(finalSpectra@intensity, sep = ",", collapse = ","),
                                                                  finalSpectra@peaksCount,
                                                                  "DDA")
-          #maybe another list to keep track of ID with Spectrum2 objects?
         }
       }
     }
     
     cwp <- CentWaveParam(snthresh = 3, noise = 10, ppm = 10,
                          peakwidth = c(5,60))
-    #performs a peak detection, separately for all spectra belonging to the same isolation 
-    ##window and adds them to the chromPeaks() matrix of the result object
-    swath_data <- findChromPeaksIsolationWindow(swath_data, param = cwp) #takes some time
+    #performs a peak detection, separately for all spectra belonging to the same isolation window and adds them to the chromPeaks() matrix of the result object
+    swath_data <- findChromPeaksIsolationWindow(swath_data, param = cwp) 
     chromPeakData(swath_data) #lists identified peaks (both MS1 and MS2) 
     table(chromPeakData(swath_data)$isolationWindow) #count the number of chromatographic peaks identified within each isolation window
     swath_spectra <- reconstructChromPeakSpectra(swath_data, minCor = 0.2)
@@ -592,10 +564,10 @@ if(feature.annotation == TRUE){
     }
     
   } else if(num.samples > 1){
-    #DDA & DIA Extraction multi sample--------------------------------------------------------------
+    #DDA & DIA Extraction multi sample
     print("Extracting SWATH pocket information ...")
     setwd(DIA.directory)
-    swath_setting_file <- list.files(pattern = ".txt") #headers cannot contain spaces
+    swath_setting_file <- list.files(pattern = ".txt") 
     swath_setting <- read.table(swath_setting_file, sep = "" , header = T , nrows = 100,
                                 na.strings ="", stringsAsFactors= F) 
     swath_setting$Targetmz <- with(swath_setting, (Minmz+Maxmz) / 2)
@@ -615,17 +587,18 @@ if(feature.annotation == TRUE){
     }
     fData(swath_data)$isolationWindowLowerOffset <- tempoffset
     fData(swath_data)$isolationWindowUpperOffset <- tempoffset
+    # #Visualizatoin of isolation window of mz
     # fData(swath_data)[, c("isolationWindowTargetMZ",
     #                       "isolationWindowLowerOffset",
     #                       "isolationWindowUpperOffset",
     #                       "msLevel", "retentionTime")]
-    # #view isolation window mz
+    # #view isolation window of mz
     # isolationWindowLowerMz(swath_data)
     # isolationWindowUpperMz(swath_data)
-    # #list the number of spectra that are recorded in each pocket/isolation window
+    # #list the number of spectra that are recorded in each isolation window
     # table(isolationWindowTargetMz(swath_data))
     
-    #MS2 spectra
+    ##MS2 spectral assignment from DDA
     print("Matching MS2 spectra using DDA MS2 scans ...")
     dda_spectra <- matchMS2multi(dda_data, featureTable, 3, expandRt = rt.tol, expandMz = mass.const.tol, ppm = mass.tol)
     featureTable <- cbind(featureTable, FALSE)
@@ -658,7 +631,6 @@ if(feature.annotation == TRUE){
                                                                  paste(finalSpectra@intensity, sep = ",", collapse = ","),
                                                                  finalSpectra@peaksCount,
                                                                  "DDA")
-          #maybe another list to keep track of ID with Spectrum2 objects?
         }
       }
     }
@@ -668,9 +640,8 @@ if(feature.annotation == TRUE){
     print("Deconvoluting SWATH MS2 scans ...")
     cwp <- CentWaveParam(snthresh = 3, noise = 10, ppm = 10,
                          peakwidth = c(5,60))
-    #performs a peak detection, separately for all spectra belonging to the same isolation 
-    ##window and adds them to the chromPeaks() matrix of the result object
-    swath_data <- findChromPeaksIsolationWindow(swath_data, param = cwp) #takes some time
+    #performs a peak detection, separately for all spectra belonging to the same isolation window and adds them to the chromPeaks() matrix of the result object
+    swath_data <- findChromPeaksIsolationWindow(swath_data, param = cwp) 
     chromPeakData(swath_data) #lists identified peaks (both MS1 and MS2) 
     table(chromPeakData(swath_data)$isolationWindow) #count the number of chromatographic peaks identified within each isolation window
     swath_spectra <- reconstructChromPeakSpectra(swath_data, minCor = 0.2, BPPARAM = SnowParam())
@@ -748,18 +719,19 @@ if(feature.annotation == TRUE){
   }
 }
 
-#------------------------------------------------------------------------------------------
+#Metabolites annotation
 if(feature.annotation == TRUE){
-  #############
   # load msp database
   print("Loading annotation library ...")
   library(CAMERA)
   library('metaMS')
   setwd(DIA.directory)
-  #db.name <- 'MoNA-export-MassBank.msp'
-  #database <- read.msp(db.name, only.org = FALSE,
-  #                      org.set = c('C','H','N','O','P','S','F','Cl','Br','I'), noNumbers = NULL)
-  database<-readRDS(db.name)
+  if(RDS){
+    database<-readRDS(db.name)
+  }else{
+    database <- read.msp(db.name, only.org = FALSE,
+                         org.set = c('C','H','N','O','P','S','F','Cl','Br','I'), noNumbers = NULL)
+  }
   print("Finished library import")
   print(Sys.time() - start_time)
   MS2_Spectra_Table <- cbind(MS2_Spectra_Table, 0)
@@ -768,16 +740,15 @@ if(feature.annotation == TRUE){
   colnames(MS2_Spectra_Table)[ncol(MS2_Spectra_Table)] <- "DPscore"
   
   if(num.samples == 1){
-    #Metabolite Annotation single  sample--------------------------------------------------------------
+    #Metabolites annotation single sample
     DaDIAtable <- cbind(DaDIAtable, 0)
     colnames(DaDIAtable)[ncol(DaDIAtable)] <- "Annotation"
     DaDIAtable <- cbind(DaDIAtable, 0)
     colnames(DaDIAtable)[ncol(DaDIAtable)] <- "DPscore"
-    # df: premass, ms2.Q, add a new column'feature.identity'
     for(x in 1:nrow(MS2_Spectra_Table)){
-      premass.Q <- MS2_Spectra_Table[x, 2]     ###query precursor ion mass
+      premass.Q <- MS2_Spectra_Table[x, 2] #query precursor ion mass
       ms2.Q <- data.frame(m.z = strsplit(MS2_Spectra_Table[x, 3], ",")[[1]],
-                          int = strsplit(MS2_Spectra_Table[x, 4], ",")[[1]])  ###query ms2 input, ncol = 2, m.z & int
+                          int = strsplit(MS2_Spectra_Table[x, 4], ",")[[1]]) #query MS2 input, ncol = 2, m.z & int
       ms2.Q$m.z <- as.numeric(as.character(ms2.Q$m.z))
       ms2.Q$int <- as.numeric(as.character(ms2.Q$int))
       
@@ -839,13 +810,12 @@ if(feature.annotation == TRUE){
     write.csv(DaDIAtable, file = "annotated_output.csv")
     
   } else if(num.samples > 1){
-    #Metabolite Annotation multi  sample--------------------------------------------------------------
+    #Metabolite annotation multi sample
     print("Performing dot product annotation ...")
     featureTable <- cbind(featureTable, 0)
     colnames(featureTable)[ncol(featureTable)] <- "Annotation"
     featureTable <- cbind(featureTable, 0)
     colnames(featureTable)[ncol(featureTable)] <- "DPscore"
-    # df: premass, ms2.Q, add a new column'feature.identity'
     d <- foreach(x = 1:nrow(MS2_Spectra_Table)) %dopar% {
       premass.Q <- MS2_Spectra_Table[x, 2]     ###query precursor ion mass
       ms2.Q <- data.frame(m.z = strsplit(MS2_Spectra_Table[x, 3], ",")[[1]],
