@@ -10,7 +10,7 @@ rt.tol <- 60 #rt tolerance in seconds
 num.samples <- 3 ######IMPORTANT######## <------- enter how many DIA samples here #####
 perform.MS2.extraction <- TRUE # whether to perform MS2 extraction and feature annotation
 ###############################################################
-DIA.directory <- "C:/Users/User/Desktop/"
+DIA.directory <- "C:/Users/User/Desktop/SWATH"
 ###############################################################
 # Database search (dot product)
 ms1.tol <- 0.01
@@ -42,7 +42,7 @@ if(num.samples == 1){
   write.csv(DIAtable, file = "DIAtable.csv")
   
 } else if(num.samples > 1){
-  #DDA guided DIA SWATH Extraction (multi-sample)--------------------------------------------------------------
+  #DDA guided DIA SWATH Extraction (multi-sample)
   setwd(DIA.directory)
   swath_file <- list.files(pattern = ".mzXML")
   swath_data <- readMSData(swath_file, mode = "onDisk")
@@ -71,7 +71,7 @@ if(num.samples == 1){
   xsetSWATH <- group(xsetSWATH, bw = 5, minfrac = 0.5, mzwid = 0.015, minsamp = 1, max = 50)
   xsetSWATH <- retcor(xsetSWATH, method = "obiwarp", profStep = 1)
   xsetSWATH <- group(xsetSWATH, bw = 5, minfrac = 0.5, mzwid = 0.015, minsamp = 1, max = 50)
-  xsetSWATH <- fillPeaks(xsetSWATH)#You must make this work as gapfilling is a standard module in any software these days
+  xsetSWATH <- fillPeaks(xsetSWATH)
   XCMt <- data.frame(xsetSWATH@groups)
   xcmI <- groupval(xsetSWATH, value = "maxo")
   featureTable <- cbind(XCMt$mzmed, XCMt$rtmed, XCMt$rtmin, XCMt$rtmax, xcmI)
@@ -85,7 +85,6 @@ if(num.samples == 1){
 }
 
 ##Functions----------------------------------------------------------------------------------
-############
 # Dot product function
 dp.score <- function(x,y){
   if(nrow(x)==0 | nrow(y)==0){return(0)}
@@ -98,7 +97,7 @@ dp.score <- function(x,y){
     mass.diff <- abs(y1[,1] - x[i,1])
     if(min(mass.diff) <= ms2.tol){
       alignment[i,3] <- y1[mass.diff==min(mass.diff),2][1]
-      y1[mass.diff==min(mass.diff),1][1] <- NA   # after matched, NA assigned
+      y1[mass.diff==min(mass.diff),1][1] <- NA   
       y1 <- y1[complete.cases(y1),]
       if(is.null(nrow(y1)) ==TRUE) break
       if(nrow(y1)==0) break
@@ -122,9 +121,9 @@ dp.score <- function(x,y){
 #------------------------------------------------------------------------------------------
 if(perform.MS2.extraction == TRUE){
   if(num.samples == 1){
-    #DDA & DIA Extraction single sample--------------------------------------------------------------
+    #DDA & DIA Extraction single sample
     setwd(DIA.directory)
-    swath_setting_file <- list.files(pattern = ".txt") #headers cannot contain spaces
+    swath_setting_file <- list.files(pattern = ".txt") 
     swath_setting <- read.table(swath_setting_file, sep = "" , header = T , nrows = 100,
                                 na.strings ="", stringsAsFactors= F) 
     swath_setting$Targetmz <- with(swath_setting, (Minmz+Maxmz) / 2)
@@ -144,9 +143,8 @@ if(perform.MS2.extraction == TRUE){
     colnames(MS2_Spectra_Table) <- c("ID", "PrecursorMZ", "MS2mz", "MS2int", "PeaksCount", "Source")
     cwp <- CentWaveParam(snthresh = 3, noise = 10, ppm = 10,
                          peakwidth = c(5,60))
-    #performs a peak detection, separately for all spectra belonging to the same isolation 
-    ##window and adds them to the chromPeaks() matrix of the result object
-    swath_data <- findChromPeaksIsolationWindow(swath_data, param = cwp) #takes some time
+    #performs a peak detection, separately for all spectra belonging to the same isolation window and adds them to the chromPeaks() matrix of the result object
+    swath_data <- findChromPeaksIsolationWindow(swath_data, param = cwp)
     chromPeakData(swath_data) #lists identified peaks (both MS1 and MS2) 
     table(chromPeakData(swath_data)$isolationWindow) #count the number of chromatographic peaks identified within each isolation window
     swath_spectra <- reconstructChromPeakSpectra(swath_data, minCor = 0.2)
@@ -180,9 +178,9 @@ if(perform.MS2.extraction == TRUE){
     }
     
   } else if(num.samples > 1){
-    #DDA & DIA Extraction multi sample--------------------------------------------------------------
+    #DDA & DIA Extraction multi sample
     setwd(DIA.directory)
-    swath_setting_file <- list.files(pattern = ".txt") #headers cannot contain spaces
+    swath_setting_file <- list.files(pattern = ".txt") 
     swath_setting <- read.table(swath_setting_file, sep = "" , header = T , nrows = 100,
                                 na.strings ="", stringsAsFactors= F) 
     swath_setting$Targetmz <- with(swath_setting, (Minmz+Maxmz) / 2)
@@ -270,11 +268,10 @@ if(perform.MS2.extraction == TRUE){
     colnames(DIAtable)[ncol(DIAtable)] <- "Annotation"
     DIAtable <- cbind(DIAtable, 0)
     colnames(DIAtable)[ncol(DIAtable)] <- "DPscore"
-    # df: premass, ms2.Q, add a new column'feature.identity'
     for(x in 1:nrow(MS2_Spectra_Table)){
-      premass.Q <- MS2_Spectra_Table[x, 2]     ###query precursor ion mass
+      premass.Q <- MS2_Spectra_Table[x, 2] #query precursor ion mass
       ms2.Q <- data.frame(m.z = strsplit(MS2_Spectra_Table[x, 3], ",")[[1]],
-                          int = strsplit(MS2_Spectra_Table[x, 4], ",")[[1]])  ###query ms2 input, ncol = 2, m.z & int
+                          int = strsplit(MS2_Spectra_Table[x, 4], ",")[[1]]) #query ms2 input, ncol = 2, m.z & int
       ms2.Q$m.z <- as.numeric(as.character(ms2.Q$m.z))
       ms2.Q$int <- as.numeric(as.character(ms2.Q$int))
       
@@ -334,16 +331,15 @@ if(perform.MS2.extraction == TRUE){
     write.csv(DIAtable, file = "annotated_output.csv")
     
   } else if(num.samples > 1){
-    #Metabolite Annotation multi  sample--------------------------------------------------------------
+    #Metabolite annotation multi sample
     featureTable <- cbind(featureTable, 0)
     colnames(featureTable)[ncol(featureTable)] <- "Annotation"
     featureTable <- cbind(featureTable, 0)
     colnames(featureTable)[ncol(featureTable)] <- "DPscore"
-    # df: premass, ms2.Q, add a new column'feature.identity'
     for(x in 1:nrow(MS2_Spectra_Table)){
-      premass.Q <- MS2_Spectra_Table[x, 2]     ###query precursor ion mass
+      premass.Q <- MS2_Spectra_Table[x, 2] #query precursor ion mass
       ms2.Q <- data.frame(m.z = strsplit(MS2_Spectra_Table[x, 3], ",")[[1]],
-                          int = strsplit(MS2_Spectra_Table[x, 4], ",")[[1]])  ###query ms2 input, ncol = 2, m.z & int
+                          int = strsplit(MS2_Spectra_Table[x, 4], ",")[[1]]) #query ms2 input, ncol = 2, m.z & int
       ms2.Q$m.z <- as.numeric(as.character(ms2.Q$m.z))
       ms2.Q$int <- as.numeric(as.character(ms2.Q$int))
       
