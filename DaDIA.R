@@ -15,8 +15,8 @@ library(ProtGenerics)
 print("Finished loading packages")
 ###############################################################
 #Part 1: Parameters for feature extraction
-DDA.directory <- "C:/Users/User/Desktop/DDA"
-DIA.directory <- "C:/Users/User/Desktop/DIA"
+DDA.directory <- "C:/Users/User/Desktop/SAM DONT TOUCH DONT DELETE/DaDIAtestSciexData/DDA"
+DIA.directory <- "C:/Users/User/Desktop/SAM DONT TOUCH DONT DELETE/DaDIAtestSciexData/DIA"
 cwpDDA <- CentWaveParam(ppm=10,
                         peakwidth=c(5,60),
                         mzdiff = 0.01,
@@ -39,10 +39,10 @@ plot.DaDIA <- TRUE #plot DaDIA features
 plot.DaDIA.mztol <- 0.5 #DaDIA feature plotting mz window width
 plot.DaDIA.rttol <- 30 #DaDIA feature plotting rt window width
 #Parameters for alignment
-bw <- 5
-minfrac <- 0.5 #retention time tolerace in minutes 
-mzwid <- 0.025 #mass tolerance
-max <- 100
+bw <- 5 #bandwidth of gaussian smoothing kernel to apply to the peak density chromatogram
+minfrac <- 0.5 #minimum fraction of samples necessary in sample groups for it to be a valid group
+mzwid <- 0.025 #width of overlapping m/z slices to use for grouping peaks across samples
+max <- 100 #maximum number of groups to identify in a single m/z slice
 quantitative.method <- "maxo"
 # "maxo" = peak height
 # "into" = peak area
@@ -60,6 +60,7 @@ match.number.threshold <- 1 #annotation match number threshold
 adduct_isotope.annotation <- TRUE #perform CAMERA annotation
 export.mgf <- TRUE #export individual MS2 spectra as .mgf
 combine.mgf <- TRUE #combine all exported .mgf files
+annotation.plot <- TRUE #plot all annotated MS2 spectrum against library
 ###############################################################
 DIA.unique <- 1 #do not change
 DDA.aid <- 2 #do not change
