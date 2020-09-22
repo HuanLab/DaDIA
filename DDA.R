@@ -13,7 +13,7 @@ plot.DDA.mztol <- 0.1
 plot.DDA.rttol <- 30
 perform.MS2.extraction <- TRUE # whether to perform MS2 extraction and feature annotation
 ###############################################################
-DDA.directory <- "C:/Users/User/Desktop/"
+DDA.directory <- "C:/Users/User/Desktop/DDA"
 ###############################################################
 # Database search (dot product)
 ms1.tol <- 0.01
@@ -44,7 +44,7 @@ if(num.samples == 1){
   write.csv(DDAtable, file = "DDAtable.csv")
   
 } else if(num.samples > 1){
-  #DDA guided DIA SWATH Extraction (multi-sample)--------------------------------------------------------------
+  #DDA guided DIA SWATH Extraction (multi-sample)
   setwd(DDA.directory)
   dda_file <- list.files(pattern = ".mzXML")
   dda_data <- readMSData(dda_file, mode = "onDisk")
@@ -72,7 +72,7 @@ if(num.samples == 1){
   xsetDDA <- group(xsetDDA, bw = 5, minfrac = 0.5, mzwid = 0.015, minsamp = 1, max = 100)
   xsetDDA <- retcor(xsetDDA, method = "obiwarp", profStep = 1)
   xsetDDA <- group(xsetDDA, bw = 5, minfrac = 0.5, mzwid = 0.015, minsamp = 1, max = 100)
-  xsetDDA <- fillPeaks(xsetDDA)#You must make this work as gapfilling is a standard module in any software these days
+  xsetDDA <- fillPeaks(xsetDDA)
   XCMt <- data.frame(xsetDDA@groups)
   xcmI <- groupval(xsetDDA, value = "maxo")
   featureTable <- cbind(XCMt$mzmed, XCMt$rtmed, XCMt$rtmin, XCMt$rtmax, xcmI)
@@ -110,7 +110,6 @@ if(num.samples == 1){
 
 
 ##Functions----------------------------------------------------------------------------------
-############
 # Dot product function
 dp.score <- function(x,y){
   if(nrow(x)==0 | nrow(y)==0){return(0)}
@@ -225,7 +224,7 @@ matchMS2multi <- function(dda_sample, alignedDaDIA, sample.num, msLevel = 2L, ex
 #------------------------------------------------------------------------------------------
 if(perform.MS2.extraction == TRUE){
   if(num.samples == 1){
-    #DDA & DIA Extraction single sample--------------------------------------------------------------
+    #DDA & DIA Extraction single sample
     #MS2 spectra
     dda_spectra <- matchMS2(dda_data, DDAtable, expandRt = rt.tol, expandMz = mass.const.tol, ppm = mass.tol)
     DDAtable <- cbind(DDAtable, FALSE)
@@ -264,7 +263,7 @@ if(perform.MS2.extraction == TRUE){
     }
     
   } else if(num.samples > 1){
-    #DDA & DIA Extraction multi sample--------------------------------------------------------------
+    #DDA & DIA Extraction multi sample
     #MS2 spectra
     dda_spectra <- matchMS2multi(dda_data, featureTable, 3, expandRt = rt.tol, expandMz = mass.const.tol, ppm = mass.tol)
     featureTable <- cbind(featureTable, FALSE)
@@ -297,7 +296,6 @@ if(perform.MS2.extraction == TRUE){
                                                                  paste(finalSpectra@intensity, sep = ",", collapse = ","),
                                                                  finalSpectra@peaksCount,
                                                                  "DDA")
-          #maybe another list to keep track of ID with Spectrum2 objects?
         }
       }
     }
@@ -321,16 +319,15 @@ if(perform.MS2.extraction == TRUE){
   colnames(MS2_Spectra_Table)[ncol(MS2_Spectra_Table)] <- "DPscore"
   
   if(num.samples == 1){
-    #Metabolite Annotation single  sample--------------------------------------------------------------
+    #Metabolite annotation single sample
     DDAtable <- cbind(DDAtable, 0)
     colnames(DDAtable)[ncol(DDAtable)] <- "Annotation"
     DDAtable <- cbind(DDAtable, 0)
     colnames(DDAtable)[ncol(DDAtable)] <- "DPscore"
-    # df: premass, ms2.Q, add a new column'feature.identity'
     for(x in 1:nrow(MS2_Spectra_Table)){
-      premass.Q <- MS2_Spectra_Table[x, 2]     ###query precursor ion mass
+      premass.Q <- MS2_Spectra_Table[x, 2] #query precursor ion mass
       ms2.Q <- data.frame(m.z = strsplit(MS2_Spectra_Table[x, 3], ",")[[1]],
-                          int = strsplit(MS2_Spectra_Table[x, 4], ",")[[1]])  ###query ms2 input, ncol = 2, m.z & int
+                          int = strsplit(MS2_Spectra_Table[x, 4], ",")[[1]]) #query ms2 input, ncol = 2, m.z & int
       ms2.Q$m.z <- as.numeric(as.character(ms2.Q$m.z))
       ms2.Q$int <- as.numeric(as.character(ms2.Q$int))
       
@@ -390,16 +387,15 @@ if(perform.MS2.extraction == TRUE){
     write.csv(DDAtable, file = "annotated_output.csv")
     
   } else if(num.samples > 1){
-    #Metabolite Annotation multi sample--------------------------------------------------------------
+    #Metabolite annotation multi sample
     featureTable <- cbind(featureTable, 0)
     colnames(featureTable)[ncol(featureTable)] <- "Annotation"
     featureTable <- cbind(featureTable, 0)
     colnames(featureTable)[ncol(featureTable)] <- "DPscore"
-    # df: premass, ms2.Q, add a new column'feature.identity'
     for(x in 1:nrow(MS2_Spectra_Table)){
-      premass.Q <- MS2_Spectra_Table[x, 2]     ###query precursor ion mass
+      premass.Q <- MS2_Spectra_Table[x, 2] #query precursor ion mass
       ms2.Q <- data.frame(m.z = strsplit(MS2_Spectra_Table[x, 3], ",")[[1]],
-                          int = strsplit(MS2_Spectra_Table[x, 4], ",")[[1]])  ###query ms2 input, ncol = 2, m.z & int
+                          int = strsplit(MS2_Spectra_Table[x, 4], ",")[[1]]) #query ms2 input, ncol = 2, m.z & int
       ms2.Q$m.z <- as.numeric(as.character(ms2.Q$m.z))
       ms2.Q$int <- as.numeric(as.character(ms2.Q$int))
       
@@ -443,19 +439,6 @@ if(perform.MS2.extraction == TRUE){
       MS2_Spectra_Table[x,7] <- feature.identity
       featureTable[MS2_Spectra_Table$ID[x], length(dda_file) + 7] <- feature.identity
     }
-    # xsa<-xsAnnotate(xsetDDA)    
-    # anF <- groupFWHM(xsa, perfwhm = 0.6)
-    # anI <- findIsotopes(anF, mzabs = 0.01)
-    # anIC <- groupCorr(anI, cor_eic_th = 0.75)
-    # anFA <- findAdducts(anIC, polarity="positive")
-    # peaklist <- getPeaklist(anFA)
-    # peaklist <- peaklist[order(peaklist$mz),]
-    # featureTable <- cbind(featureTable, peaklist$isotopes)
-    # colnames(featureTable)[ncol(featureTable)] <- "Isotopes"
-    # featureTable <- cbind(featureTable, peaklist$adduct)
-    # colnames(featureTable)[ncol(featureTable)] <- "Adduct"
-    # featureTable <- cbind(featureTable, as.numeric(peaklist$pcgroup))
-    # colnames(featureTable)[ncol(featureTable)] <- "pcgroup"
     write.csv(featureTable, file = "annotated_output.csv")
   }
 }
