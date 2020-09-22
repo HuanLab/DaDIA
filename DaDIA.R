@@ -15,8 +15,8 @@ library(ProtGenerics)
 print("Finished loading packages")
 ###############################################################
 #Part 1: Parameters for feature extraction
-DDA.directory <- "C:/Users/User/Desktop/SAM DONT TOUCH DONT DELETE/DaDIAtestSciexData/DDA"
-DIA.directory <- "C:/Users/User/Desktop/SAM DONT TOUCH DONT DELETE/DaDIAtestSciexData/DIA"
+DDA.directory <- "C:/Users/User/Desktop/DDA"
+DIA.directory <- "C:/Users/User/Desktop/DIA"
 cwpDDA <- CentWaveParam(ppm=10,
                         peakwidth=c(5,60),
                         mzdiff = 0.01,
