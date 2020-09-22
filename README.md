@@ -1,7 +1,7 @@
 **Data-Dependent-Assisted Data-Independent Acquisition (DaDIA.R) User
 Manual**
 
-(Version 4.0; Sep 21^th^, 2020)
+(Version 4.0; Sep 21th, 2020)
 
 Jian Guo, Sam Shen, Tao Huan
 
@@ -23,41 +23,65 @@ Jian Guo, Sam Shen, Tao Huan
 3)  In line 17 -- 63, set required parameters to desired value according
     to onscreen prompts (See below).
 
-![A screenshot of a social media post Description automatically
-generated](media/image1.png){width="6.5in" height="6.6875in"}
-
 **Table 1.** DaDIA parameters needed to be changed according to the
 user\'s preference.
 
   **Row \#**   **Parameter Name**            **Parameter Function**
-  ------------ ----------------------------- -----------------------------------------------------------------------------------------------------------------------------------
+  
   18           *DDA.directory*               Set directory containing all DDA .mzxml files
+  
   19           *DIA.directory*               Set directory containing all DIA(SWATH) .mzxml files, SWATH isolation window labeling .txt file, and annotation library .msp file
+  
   20           *cwpDDA*                      Set XCMS parameters for DDA feature extraction
+  
   27           *cwpDIA*                      Set XCMS parameters for DIA feature extraction
+  
   34           *mass.tol*                    Set m/z tolerance (± ppm) for feature dereplication and MS2 matching
+  
   35           *mass.const.tol*              Set m/z tolerance (± constant value) for feature rescue
+  
   36           *rt.tol*                      Set retention time tolerance (± sec) for identifying same features
+  
   37           *num.samples*                 Set number of DIA(SWATH) samples to run
+  
   38           *plot.DaDIA*                  Set whether to plot extracted DaDIA MS1 features
+  
   39           *plot.DaDIA.mztol*            Set DaDIA feature plotting mz window width
+  
   40           *plot.DaDIA.rttol*            Set DaDIA feature plotting rt window width
+  
   42           *bw*                          Set XCMS feature alignment bandwidth
+  
   43           *minfrac*                     Set XCMS feature alignment minimum sample fraction
+  
   44           *mzwid*                       Set XCMS feature alignment m/z slice width
+  
   45           *max*                         Set XCMS feature alignment maximum \# of groups / slice
+  
   46           *quantitative.method*         Set whether to use max or integrated intensity for calculations; pick between peak height or peak area
+  
   51           *feature.annotation*          Set whether to perform MS2 extraction and DaDIA feature annotation
+  
   52           *db.name*                     Set the name of the library used for dot product annotation
+  
   53           *RDS*                         Set whether the annotation library is in RDS of MSP format
+  
   56           *ms1.tol*                     Set MS1 tolerance in dot product calculation
+  
   57           *ms2.tol*                     Set MS2 tolerance in dot product calculation
+  
   58           *dot.product.threshold*       Set annotation dot product score threshold
+  
   59           *match.number.threshold*      Set annotation match number score threshold
+  
   60           *adduct_isotope.annotation*   Set whether to perform CAMERA adduct and isotope annotation
+  
   61           *export.mgf*                  Set whether to export MS2 spectrum as individual .mgf files
+  
   62           *combine.mgf*                 Set whether to concatenate all exported .mgf files into a single .mfg file
+  
   63           *annotation.plot*             Set whether to plot all annotated MS2 spectrum against library
+  
 
 4)  In line 7, set the directory in the user's computer that contains
     all DDA samples (Note: there should be only .mzxml files in this
@@ -67,10 +91,6 @@ user\'s preference.
     be .mzxml, .txt, and .msp files in this folder). See below for a
     sample format of the SWATH pocket definition file; note that the
     column headers should be kept the same as the example shown:
-
-![A screenshot of a cell phone Description automatically
-generated](media/image2.png){width="2.2336450131233594in"
-height="2.9232261592300963in"}
 
 5)  Note: if users wish to use MS-Dial library for annotation, they must
     first convert the raw MS-Dial library to a readable .msp format
