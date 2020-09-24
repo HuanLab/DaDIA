@@ -15,8 +15,8 @@ library(ProtGenerics)
 print("Finished loading packages")
 ###############################################################
 #Part 1: Parameters for feature extraction
-DDA.directory <- "C:/Users/User/Desktop/SAM DONT TOUCH DONT DELETE/DaDIAtestSciexData/DDA"
-DIA.directory <- "C:/Users/User/Desktop/SAM DONT TOUCH DONT DELETE/DaDIAtestSciexData/DIA"
+DDA.directory <- "E:/SAM/DaDIA_20200807/DaDIA_DDA"
+DIA.directory <- "E:/SAM/DaDIA_20200807/DaDIA_SWATH"
 cwpDDA <- CentWaveParam(ppm=10,
                         peakwidth=c(5,60),
                         mzdiff = 0.01,
@@ -34,25 +34,22 @@ cwpDIA <- CentWaveParam(ppm=10,
 mass.tol <- 10 #mz tolerance in ppm: used in feature dereplication and MS2 matching
 mass.const.tol <- 0.05 #mz tolerance in constant value: used in feature rescue
 rt.tol <- 60 #rt tolerance in seconds
-num.samples <- 11 #enter how many DIA samples here
-plot.DaDIA <- TRUE #plot DaDIA features
+num.samples <- 3 #enter how many DIA samples here
+plot.DaDIA <- FALSE #plot DaDIA features
 plot.DaDIA.mztol <- 0.5 #DaDIA feature plotting mz window width
 plot.DaDIA.rttol <- 30 #DaDIA feature plotting rt window width
 #Parameters for alignment
-bw <- 5 #bandwidth of gaussian smoothing kernel to apply to the peak density chromatogram
-minfrac <- 0.5 #minimum fraction of samples necessary in sample groups for it to be a valid group
-mzwid <- 0.025 #width of overlapping m/z slices to use for grouping peaks across samples
-max <- 100 #maximum number of groups to identify in a single m/z slice
+bw <- 5
+minfrac <- 0.5 #retention time tolerace in minutes 
+mzwid <- 0.025 #mass tolerance
+max <- 100
 quantitative.method <- "maxo"
 # "maxo" = peak height
 # "into" = peak area
 ###############################################################
 #Part 2: Parameters for database search (dot product)
 feature.annotation <- TRUE #annotate DaDIA features
-db.name <- "convertedLibrarPos.Rds" #annotation library name
-RDS <- TRUE
-# "TRUE" = database is in RDS format
-# "FALSE" = database is in MSP format
+db.name <- "RP(+)_StdMixSpectralLibrary.msp" #annotation library name
 ms1.tol <- 0.01 #dot product calculation ms1 tolerance
 ms2.tol <- 0.02 #dot product calculation ms2 tolerance
 dot.product.threshold <- 0.1 #dot product annotation threshold
@@ -60,7 +57,6 @@ match.number.threshold <- 1 #annotation match number threshold
 adduct_isotope.annotation <- TRUE #perform CAMERA annotation
 export.mgf <- TRUE #export individual MS2 spectra as .mgf
 combine.mgf <- TRUE #combine all exported .mgf files
-annotation.plot <- TRUE #plot all annotated MS2 spectrum against library
 ###############################################################
 DIA.unique <- 1 #do not change
 DDA.aid <- 2 #do not change
@@ -495,7 +491,7 @@ if(feature.annotation == TRUE){
     #MS2 spectral assignment from DDA
     dda_spectra <- matchMS2(dda_data, DaDIAtable, expandRt = rt.tol, expandMz = mass.const.tol, ppm = mass.tol)
     DaDIAtable <- cbind(DaDIAtable, FALSE)
-    colnames(DaDIAtable)[ncol(DaDIAtable)] <- "MS2_match"
+    colnames(DaDIAtable)[ncol(DaDIAtable)] <- "MS2_Available"
     MS2_Spectra_Table <- data.frame(matrix(ncol = 6, nrow = 0))
     colnames(MS2_Spectra_Table) <- c("ID", "PrecursorMZ", "MS2mz", "MS2int", "PeaksCount", "Source")
     for (i in 1:nrow(DaDIAtable)) {
@@ -517,11 +513,11 @@ if(feature.annotation == TRUE){
             }
           }
           finalSpectra = tmpSpectra[[currIdx]]
-          DaDIAtable$MS2_match[i] <- TRUE
+          DaDIAtable$MS2_Available[i] <- TRUE
           MS2_Spectra_Table[nrow(MS2_Spectra_Table) + 1,] = list(i, 
                                                                  finalSpectra@precursorMz,
-                                                                 paste(finalSpectra@mz, sep = ",", collapse = ","),
-                                                                 paste(finalSpectra@intensity, sep = ",", collapse = ","),
+                                                                 paste(round(finalSpectra@mz,4), collapse = ";"),
+                                                                 paste(finalSpectra@intensity, collapse = ";"),
                                                                  finalSpectra@peaksCount,
                                                                  "DDA")
         }
@@ -549,14 +545,14 @@ if(feature.annotation == TRUE){
                             (DaDIAtable$mz < tmpDIAtable$mzmax[i]) & 
                             (DaDIAtable$rt > tmpDIAtable$rtmin[i]) & 
                             (DaDIAtable$rt < tmpDIAtable$rtmax[i]) &
-                            (DaDIAtable$MS2_match == FALSE))
+                            (DaDIAtable$MS2_Available == FALSE))
         if(length(tmpMatch) > 0){
           for(j in 1:length(tmpMatch)){
-            DaDIAtable$MS2_match[tmpMatch[j]] <- TRUE
+            DaDIAtable$MS2_Available[tmpMatch[j]] <- TRUE
             MS2_Spectra_Table[nrow(MS2_Spectra_Table) + 1,] = list(tmpMatch[j], 
                                                                    finalSpectra@precursorMz,
-                                                                   paste(finalSpectra@mz, sep = ",", collapse = ","),
-                                                                   paste(finalSpectra@intensity, sep = ",", collapse = ","),
+                                                                   paste(round(finalSpectra@mz,4), collapse = ";"),
+                                                                   paste(finalSpectra@intensity, collapse = ";"),
                                                                    finalSpectra@peaksCount,
                                                                    "SWATH")
           }
@@ -603,7 +599,7 @@ if(feature.annotation == TRUE){
     print("Matching MS2 spectra using DDA MS2 scans ...")
     dda_spectra <- matchMS2multi(dda_data, featureTable, 3, expandRt = rt.tol, expandMz = mass.const.tol, ppm = mass.tol)
     featureTable <- cbind(featureTable, FALSE)
-    colnames(featureTable)[ncol(featureTable)] <- "MS2_match"
+    colnames(featureTable)[ncol(featureTable)] <- "MS2_Available"
     MS2_Spectra_Table <- data.frame(matrix(ncol = 6, nrow = 0))
     colnames(MS2_Spectra_Table) <- c("ID", "PrecursorMZ", "MS2mz", "MS2int", "PeaksCount", "Source")
     for (i in 1:nrow(featureTable)) {
@@ -625,11 +621,11 @@ if(feature.annotation == TRUE){
             }
           }
           finalSpectra = tmpSpectra[[currIdx]]
-          featureTable$MS2_match[i] <- TRUE
+          featureTable$MS2_Available[i] <- TRUE
           MS2_Spectra_Table[nrow(MS2_Spectra_Table) + 1,] = list(i, 
                                                                  finalSpectra@precursorMz,
-                                                                 paste(finalSpectra@mz, sep = ",", collapse = ","),
-                                                                 paste(finalSpectra@intensity, sep = ",", collapse = ","),
+                                                                 paste(round(finalSpectra@mz,4), collapse = ";"),
+                                                                 paste(finalSpectra@intensity, collapse = ";"),
                                                                  finalSpectra@peaksCount,
                                                                  "DDA")
         }
@@ -665,7 +661,7 @@ if(feature.annotation == TRUE){
                             (featureTable$mz < tmpDIAtable$mzmax[i]) & 
                             (featureTable$RT > tmpDIAtable$rtmin[i]) & 
                             (featureTable$RT < tmpDIAtable$rtmax[i]) &
-                            (featureTable$MS2_match == FALSE))
+                            (featureTable$MS2_Available == FALSE))
         if(length(tmpMatch) > 0){
           for(j in 1:length(tmpMatch)){
             if(is.null(combSpectra[[tmpMatch[j]]])){
@@ -706,11 +702,11 @@ if(feature.annotation == TRUE){
     for (i in 1:nrow(featureTable)) {
       if(is.null(combined_Spectra[[i]]) == FALSE){
         finalSpectra <- combined_Spectra[[i]]
-        featureTable$MS2_match[i] <- TRUE
+        featureTable$MS2_Available[i] <- TRUE
         MS2_Spectra_Table[nrow(MS2_Spectra_Table) + 1,] = list(i, 
                                                                finalSpectra@precursorMz,
-                                                               paste(finalSpectra@mz, sep = ",", collapse = ","),
-                                                               paste(finalSpectra@intensity, sep = ",", collapse = ","),
+                                                               paste(round(finalSpectra@mz,4), collapse = ";"),
+                                                               paste(finalSpectra@intensity,  collapse = ";"),
                                                                finalSpectra@peaksCount,
                                                                "SWATH")
       }
@@ -727,12 +723,8 @@ if(feature.annotation == TRUE){
   library(CAMERA)
   library('metaMS')
   setwd(DIA.directory)
-  if(RDS){
-    database<-readRDS(db.name)
-  }else{
-    database <- read.msp(db.name, only.org = FALSE,
-                         org.set = c('C','H','N','O','P','S','F','Cl','Br','I'), noNumbers = NULL)
-  }
+  database <- read.msp(db.name, only.org = FALSE,
+                       org.set = c('C','H','N','O','P','S','F','Cl','Br','I'), noNumbers = NULL)
   print("Finished library import")
   print(Sys.time() - start_time)
   MS2_Spectra_Table <- cbind(MS2_Spectra_Table, 0)
