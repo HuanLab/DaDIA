@@ -13,6 +13,7 @@ perform.MS2.extraction <- TRUE # whether to perform MS2 extraction and feature a
 DIA.directory <- "C:/Users/User/Desktop/SWATH"
 ###############################################################
 # Database search (dot product)
+db.name <- 'MoNA-export-MassBank.msp'
 ms1.tol <- 0.01
 ms2.tol <- 0.02
 ###############################################################
@@ -253,10 +254,8 @@ if(perform.MS2.extraction == TRUE){
   library(CAMERA)
   library('metaMS')
   setwd(DIA.directory)
-  #db.name <- 'MoNA-export-MassBank.msp'
-  #database <- read.msp(db.name, only.org = FALSE,
-  #                      org.set = c('C','H','N','O','P','S','F','Cl','Br','I'), noNumbers = NULL)
-  database<-readRDS("database.Rds")
+  database <- read.msp(db.name, only.org = FALSE,
+                        org.set = c('C','H','N','O','P','S','F','Cl','Br','I'), noNumbers = NULL)
   MS2_Spectra_Table <- cbind(MS2_Spectra_Table, 0)
   colnames(MS2_Spectra_Table)[ncol(MS2_Spectra_Table)] <- "Annotation"
   MS2_Spectra_Table <- cbind(MS2_Spectra_Table, 0)
