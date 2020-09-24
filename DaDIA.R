@@ -40,7 +40,7 @@ plot.DaDIA.mztol <- 0.5 #DaDIA feature plotting mz window width
 plot.DaDIA.rttol <- 30 #DaDIA feature plotting rt window width
 #Parameters for alignment
 bw <- 5
-minfrac <- 0.5 #retention time tolerace in minutes 
+minfrac <- 0.5 
 mzwid <- 0.025 #mass tolerance
 max <- 100
 quantitative.method <- "maxo"
