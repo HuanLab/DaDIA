@@ -15,8 +15,8 @@ library(ProtGenerics)
 print("Finished loading packages")
 ###############################################################
 #Part 1: Parameters for feature extraction
-DDA.directory <- "E:/SAM/DaDIA_20200807/DaDIA_DDA"
-DIA.directory <- "E:/SAM/DaDIA_20200807/DaDIA_SWATH"
+DDA.directory <- "E:/DaDIA_DDA"
+DIA.directory <- "E:/DaDIA_DIA"
 cwpDDA <- CentWaveParam(ppm=10,
                         peakwidth=c(5,60),
                         mzdiff = 0.01,
@@ -35,13 +35,13 @@ mass.tol <- 10 #mz tolerance in ppm: used in feature dereplication and MS2 match
 mass.const.tol <- 0.05 #mz tolerance in constant value: used in feature rescue
 rt.tol <- 60 #rt tolerance in seconds
 num.samples <- 3 #enter how many DIA samples here
-plot.DaDIA <- FALSE #plot DaDIA features
+plot.DaDIA <- TRUE #plot DaDIA features
 plot.DaDIA.mztol <- 0.5 #DaDIA feature plotting mz window width
 plot.DaDIA.rttol <- 30 #DaDIA feature plotting rt window width
 #Parameters for alignment
 bw <- 5
-minfrac <- 0.5 
-mzwid <- 0.025 #mass tolerance
+minfrac <- 0.5
+mzwid <- 0.015
 max <- 100
 quantitative.method <- "maxo"
 # "maxo" = peak height
@@ -49,7 +49,7 @@ quantitative.method <- "maxo"
 ###############################################################
 #Part 2: Parameters for database search (dot product)
 feature.annotation <- TRUE #annotate DaDIA features
-db.name <- "RP(+)_StdMixSpectralLibrary.msp" #annotation library name
+db.name <- "convertedLibraryPos.msp" #annotation library name
 ms1.tol <- 0.01 #dot product calculation ms1 tolerance
 ms2.tol <- 0.02 #dot product calculation ms2 tolerance
 dot.product.threshold <- 0.1 #dot product annotation threshold
@@ -57,6 +57,7 @@ match.number.threshold <- 1 #annotation match number threshold
 adduct_isotope.annotation <- TRUE #perform CAMERA annotation
 export.mgf <- TRUE #export individual MS2 spectra as .mgf
 combine.mgf <- TRUE #combine all exported .mgf files
+MS2mirrorplot <- TRUE #plot mirror plots for features with dot product larger than dot product threshold
 ###############################################################
 DIA.unique <- 1 #do not change
 DDA.aid <- 2 #do not change
@@ -154,7 +155,8 @@ if(num.samples == 1){
   inDIA.matrix <- inDIA.matrix[is.na(inDIA.matrix$mz)==FALSE,]
   xsetSWATH@peaks <- rbind(xsetSWATH@peaks, as.matrix(inDIA.matrix))
   DaDIAtable <- rbind(DIAtable, inDIA.matrix)
-  colnames(DaDIAtable)[9] <- "intMax"
+  colnames(DaDIAtable)[7] <- "Peak_area"
+  colnames(DaDIAtable)[9] <- "Peak_intensity"
   DaDIAtable <- DaDIAtable[order(DaDIAtable[,1]),]
   row.names(DaDIAtable) <- 1:nrow(DaDIAtable)
   write.csv(DaDIAtable, file = "DaDIAtable.csv")
@@ -285,7 +287,8 @@ if(num.samples == 1){
     setwd(DIA.directory)
     sampleOutput <- DaDIAtable[DaDIAtable$sample == n, ]
     sampleOutput <- sampleOutput[order(sampleOutput[,1]),]
-    colnames(sampleOutput)[9] <- "intMax"
+    colnames(sampleOutput)[7] <- "Peak_area"
+    colnames(sampleOutput)[9] <- "Peak_intensity"
     row.names(sampleOutput) <- 1:nrow(sampleOutput)
     write.csv(sampleOutput, file = paste(n,"DaDIAtable.csv",sep = "_"))
   }
@@ -706,7 +709,7 @@ if(feature.annotation == TRUE){
         MS2_Spectra_Table[nrow(MS2_Spectra_Table) + 1,] = list(i, 
                                                                finalSpectra@precursorMz,
                                                                paste(round(finalSpectra@mz,4), collapse = ";"),
-                                                               paste(finalSpectra@intensity,  collapse = ";"),
+                                                               paste(finalSpectra@intensity, collapse = ";"),
                                                                finalSpectra@peaksCount,
                                                                "SWATH")
       }
@@ -731,7 +734,13 @@ if(feature.annotation == TRUE){
   colnames(MS2_Spectra_Table)[ncol(MS2_Spectra_Table)] <- "Annotation"
   MS2_Spectra_Table <- cbind(MS2_Spectra_Table, 0)
   colnames(MS2_Spectra_Table)[ncol(MS2_Spectra_Table)] <- "DPscore"
-  
+  MS2_Spectra_Table <- cbind(MS2_Spectra_Table, 0)
+  colnames(MS2_Spectra_Table)[ncol(MS2_Spectra_Table)] <- "Lib.PrecursorMZ"
+  MS2_Spectra_Table <- cbind(MS2_Spectra_Table, 0)
+  colnames(MS2_Spectra_Table)[ncol(MS2_Spectra_Table)] <- "Lib.FragmentMZ"
+  MS2_Spectra_Table <- cbind(MS2_Spectra_Table, 0)
+  colnames(MS2_Spectra_Table)[ncol(MS2_Spectra_Table)] <- "Lib.FragmentINT"
+
   if(num.samples == 1){
     #Metabolites annotation single sample
     DaDIAtable <- cbind(DaDIAtable, 0)
@@ -740,13 +749,13 @@ if(feature.annotation == TRUE){
     colnames(DaDIAtable)[ncol(DaDIAtable)] <- "DPscore"
     for(x in 1:nrow(MS2_Spectra_Table)){
       premass.Q <- MS2_Spectra_Table[x, 2] #query precursor ion mass
-      ms2.Q <- data.frame(m.z = strsplit(MS2_Spectra_Table[x, 3], ",")[[1]],
-                          int = strsplit(MS2_Spectra_Table[x, 4], ",")[[1]]) #query MS2 input, ncol = 2, m.z & int
+      ms2.Q <- data.frame(m.z = strsplit(MS2_Spectra_Table[x, 3], ";")[[1]],
+                          int = strsplit(MS2_Spectra_Table[x, 4], ";")[[1]]) #query MS2 input, ncol = 2, m.z & int
       ms2.Q$m.z <- as.numeric(as.character(ms2.Q$m.z))
       ms2.Q$int <- as.numeric(as.character(ms2.Q$int))
       
-      output <- data.frame(matrix(ncol=3))
-      colnames(output) <- c('std.name','DP.score','match_No')
+      output <- data.frame(matrix(ncol=6))
+      colnames(output) <- c('std.name','DP.score','match_No', 'Lib.PrecursorMZ', 'Lib.FragmentMZ', 'Lib.FragmentINT')
       h <- 1
       for(i in 1:length(database)){
         if(is.null(database[[i]]$PrecursorMZ)==TRUE) next # no precursor mass
@@ -760,6 +769,9 @@ if(feature.annotation == TRUE){
         output[h,1] <- name.L
         output[h,2] <- dp.score(ms2.Q,ms2.L)[1]
         output[h,3] <- dp.score(ms2.Q,ms2.L)[2]
+        output[h,4] <- premass.L
+        output[h,5] <- paste(round(ms2.L$mz ,4), collapse = ";")
+        output[h,6] <- paste(ms2.L$intensity, collapse = ";")
         
         h <- h + 1 
       }
@@ -769,7 +781,10 @@ if(feature.annotation == TRUE){
       if(nrow(output > 0)){
         output <- output[order(-output[,2]),]
         dot.product <- output[1,2]
-        MS2_Spectra_Table[x,8] <- dot.product
+        MS2_Spectra_Table$DPscore[x] <- dot.product
+        MS2_Spectra_Table$Lib.PrecursorMZ[x] <- output[1,4]
+        MS2_Spectra_Table$Lib.FragmentMZ[x] <- output[1,5]
+        MS2_Spectra_Table$Lib.FragmentINT[x] <- output[1,6]
         DaDIAtable[MS2_Spectra_Table$ID[x], 14] <- dot.product
       }
       
@@ -810,14 +825,15 @@ if(feature.annotation == TRUE){
     featureTable <- cbind(featureTable, 0)
     colnames(featureTable)[ncol(featureTable)] <- "DPscore"
     d <- foreach(x = 1:nrow(MS2_Spectra_Table)) %dopar% {
+      print(x)
       premass.Q <- MS2_Spectra_Table[x, 2]     ###query precursor ion mass
-      ms2.Q <- data.frame(m.z = strsplit(MS2_Spectra_Table[x, 3], ",")[[1]],
-                          int = strsplit(MS2_Spectra_Table[x, 4], ",")[[1]])  ###query ms2 input, ncol = 2, m.z & int
+      ms2.Q <- data.frame(m.z = strsplit(MS2_Spectra_Table[x, 3], ";")[[1]],
+                          int = strsplit(MS2_Spectra_Table[x, 4], ";")[[1]])  ###query ms2 input, ncol = 2, m.z & int
       ms2.Q$m.z <- as.numeric(as.character(ms2.Q$m.z))
       ms2.Q$int <- as.numeric(as.character(ms2.Q$int))
       
-      output <- data.frame(matrix(ncol=3))
-      colnames(output) <- c('std.name','DP.score','match_No')
+      output <- data.frame(matrix(ncol=6))
+      colnames(output) <- c('std.name','DP.score','match_No', 'Lib.PrecursorMZ', 'Lib.FragmentMZ', 'Lib.FragmentINT')
       h <- 1
       for(i in 1:length(database)){
         if(is.null(database[[i]]$PrecursorMZ)==TRUE) next # no precursor mass
@@ -831,6 +847,9 @@ if(feature.annotation == TRUE){
         output[h,1] <- name.L
         output[h,2] <- dp.score(ms2.Q,ms2.L)[1]
         output[h,3] <- dp.score(ms2.Q,ms2.L)[2]
+        output[h,4] <- premass.L
+        output[h,5] <- paste(round(ms2.L$mz ,4), collapse = ";")
+        output[h,6] <- paste(ms2.L$intensity, collapse = ";")
         
         h <- h + 1 
       }
@@ -842,6 +861,9 @@ if(feature.annotation == TRUE){
         output <- output[order(-output[,2]),]
         dot.product <- output[1,2]
         outVector[1] <- dot.product
+        outVector[2] <- output[1,4]
+        outVector[3] <- output[1,5]
+        outVector[4] <- output[1,6]
       }
       
       # Dp score threshold, Dp score >= 0.7 , match_No >= 6 (used in GNPS identification)
@@ -853,13 +875,16 @@ if(feature.annotation == TRUE){
         output <- output[order(-output[,2]),] # sort by scores
         feature.identity <- output[1,1] # Rank 1, std name
       }
-      outVector[2] <- feature.identity
+      outVector[5] <- feature.identity
       return(outVector)
     }
     for(x in 1:length(d)){
-      MS2_Spectra_Table[x,7] <- d[[x]][2]
-      featureTable$Annotation[MS2_Spectra_Table$ID[x]] <- d[[x]][2]
-      MS2_Spectra_Table[x,8] <- d[[x]][1]
+      MS2_Spectra_Table$Lib.PrecursorMZ[x] <- d[[x]][2]
+      MS2_Spectra_Table$Lib.FragmentMZ[x] <- d[[x]][3]
+      MS2_Spectra_Table$Lib.FragmentINT[x] <- d[[x]][4]
+      MS2_Spectra_Table$Annotation[x] <- d[[x]][5]
+      featureTable$Annotation[MS2_Spectra_Table$ID[x]] <- d[[x]][5]
+      MS2_Spectra_Table$DPscore[x] <- d[[x]][1]
       featureTable$DPscore[MS2_Spectra_Table$ID[x]] <- d[[x]][1]
     }
     print("Dot product annotation finished")
@@ -889,12 +914,12 @@ if(feature.annotation == TRUE){
 
 if(export.mgf){
   print("Exporting individual mgf files ...")
-  dir.create("SWATHmgf")
-  setwd("SWATHmgf")
+  dir.create("DIAmgf")
+  setwd("DIAmgf")
   for(y in 1:length(combined_Spectra)){
     if(is.null(combined_Spectra[[y]]) == FALSE){
       writeMgfData(combined_Spectra[[y]], con = paste0(featureTable$mz[y], "_", 
-                                                       featureTable$RT[y], "_", "SWATH.mgf"))
+                                                       featureTable$RT[y], "_", "DIA.mgf"))
     }
   }
   
@@ -942,7 +967,7 @@ if(combine.mgf){
     mgf <- rbind(mgf, mgftmp)
   }
   setwd(DIA.directory)
-  setwd("SWATHmgf")
+  setwd("DIAmgf")
   SWATHmgfs <- list.files()
   for(m in 1:length(SWATHmgfs)){
     mgf[nrow(mgf)+1,] <- NA
@@ -955,6 +980,38 @@ if(combine.mgf){
               quote = FALSE, na = "")
   print("Finished combining mgf files")
   print(Sys.time() - start_time)
+}
+
+if(MS2mirrorplot){
+  print("Generating MS2 vs library mirror plots ...")
+  setwd(DIA.directory)
+  dir.create("MS2mirrorplot")
+  setwd("MS2mirrorplot")
+  for(g in 1:nrow(MS2_Spectra_Table)){
+    if(as.numeric(MS2_Spectra_Table$DPscore[g]) > dot.product.threshold){
+      spQ <- new("Spectrum2", mz = as.numeric(strsplit(MS2_Spectra_Table$MS2mz[g], ";")[[1]]), 
+                 intensity = as.numeric(strsplit(MS2_Spectra_Table$MS2int[g], ";")[[1]]),
+                 precursorMz = as.numeric(MS2_Spectra_Table$PrecursorMZ[g]), centroided = TRUE)
+      spL <- new("Spectrum2", mz = as.numeric(strsplit(MS2_Spectra_Table$Lib.FragmentMZ[g], ";")[[1]]), 
+                 intensity = as.numeric(strsplit(MS2_Spectra_Table$Lib.FragmentINT[g], ";")[[1]]),
+                 precursorMz = as.numeric(MS2_Spectra_Table$Lib.PrecursorMZ[g]), centroided = TRUE)
+      if(nchar(MS2_Spectra_Table$Annotation[g]) <= 45){
+        title <- MS2_Spectra_Table$Annotation[g]
+      }else if(nchar(MS2_Spectra_Table$Annotation[g]) > 45 & nchar(MS2_Spectra_Table$Annotation[g]) <= 90){
+        title <- paste0(substr(MS2_Spectra_Table$Annotation[g], 1, 45), "\n",
+                        substr(MS2_Spectra_Table$Annotation[g], 46, nchar(MS2_Spectra_Table$Annotation[g])))
+      }else{
+        title <- paste0(substr(MS2_Spectra_Table$Annotation[g], 1, 45), "\n",
+                        substr(MS2_Spectra_Table$Annotation[g], 46, 90), "\n",
+                        substr(MS2_Spectra_Table$Annotation[g], 91, nchar(MS2_Spectra_Table$Annotation[g])))
+      }
+      png(file = paste0(MS2_Spectra_Table$ID[g],"_DP_", as.numeric(MS2_Spectra_Table$DPscore[g]),".png"), width = 480, height = 480)
+      mirrorPlot <- plot(spQ, spL, tolerance = ms2.tol, main = title)
+      dev.off()
+    }
+    print("Finished generating mirror plots")
+    print(Sys.time() - start_time)
+  }
 }
 
 end_time <- Sys.time()
