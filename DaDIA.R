@@ -15,8 +15,8 @@ library(ProtGenerics)
 print("Finished loading packages")
 ###############################################################
 #Part 1: Parameters for feature extraction
-DDA.directory <- "E:/DaDIA_DDA/"
-DIA.directory <- "E:/DaDIA_DIA"
+DDA.directory <- "E:/SAM/DaDIA_20200807/DaDIA_DDA/single"
+DIA.directory <- "E:/SAM/DaDIA_20200807/DaDIA_SWATH/single"
 cwpDDA <- CentWaveParam(ppm=10,
                         peakwidth=c(5,60),
                         mzdiff = 0.01,
@@ -49,7 +49,7 @@ quantitative.method <- "maxo"
 ###############################################################
 #Part 2: Parameters for database search (dot product)
 feature.annotation <- TRUE #annotate DaDIA features
-db.name <- "Library.msp" #annotation library name
+db.name <- "convertedLibraryPos.msp" #annotation library name
 ms1.tol <- 0.01 #dot product calculation ms1 tolerance
 ms2.tol <- 0.02 #dot product calculation ms2 tolerance
 dot.product.threshold <- 0.1 #dot product annotation threshold
@@ -323,7 +323,7 @@ if(num.samples == 1){
   XCMt <- data.frame(xsetSWATH@groups)
   xcmI <- groupval(xsetSWATH, value = quantitative.method)
   featureTable <- cbind(XCMt$mzmed, XCMt$rtmed, XCMt$rtmin, XCMt$rtmax, xcmI)
-  colnames(featureTable)[1:4] <- c("mz", "RT", "RTmin", "RTmax")
+  colnames(featureTable)[1:4] <- c("mz", "rt", "RTmin", "RTmax")
   featureTable <- featureTable[order(featureTable[,1]),]
   featureTable <- cbind(featureTable, 1:nrow(featureTable))
   colnames(featureTable)[ncol(featureTable)] <- "ID"
@@ -344,12 +344,12 @@ if(num.samples == 1){
       xrawList[n] <- xcmsRaw(filepaths(xsetSWATH)[n],profstep=0)
     }
     for(k in 1:nrow(plot.matrix)){
-      rt.lower.limit <- featureTable$RT[k] - plot.DaDIA.rttol
-      rt.upper.limit <- featureTable$RT[k] + plot.DaDIA.rttol
+      rt.lower.limit <- featureTable$rt[k] - plot.DaDIA.rttol
+      rt.upper.limit <- featureTable$rt[k] + plot.DaDIA.rttol
       mass.lower.limit <- featureTable$mz[k] - plot.DaDIA.mztol
       mass.upper.limit <- featureTable$mz[k] + plot.DaDIA.mztol
       maxIndex <- as.numeric(which.max(plot.matrix[k,]))
-      png(file = paste0(featureTable$mz[k],"_", featureTable$RT[k],".png"), width = 480, height = 480)
+      png(file = paste0(featureTable$mz[k],"_", featureTable$rt[k],".png"), width = 480, height = 480)
       eic <- plotEIC(xrawList[[maxIndex]], mzrange = c(mass.lower.limit, mass.upper.limit), 
                      rtrange = c(rt.lower.limit,rt.upper.limit))
       dev.off()
@@ -553,7 +553,7 @@ if(feature.annotation == TRUE){
     swath_data <- findChromPeaksIsolationWindow(swath_data, param = cwp) 
     chromPeakData(swath_data) #lists identified peaks (both MS1 and MS2) 
     table(chromPeakData(swath_data)$isolationWindow) #count the number of chromatographic peaks identified within each isolation window
-    combined_Spectra <- reconstructChromPeakSpectra(swath_data, minCor = 0.2)
+    swath_spectra <- reconstructChromPeakSpectra(swath_data, minCor = 0.2)
     
     tmpDIAtable <- as.data.frame(chromPeaks(swath_data, msLevel = 1L))
     mz.diff <- tmpDIAtable[, "mz"] * mass.tol / 1e6 
@@ -561,9 +561,11 @@ if(feature.annotation == TRUE){
     tmpDIAtable[, "mzmax"] <- tmpDIAtable[, "mz"] + mz.diff
     tmpDIAtable[, "rtmin"] <- tmpDIAtable[, "rt"] - rt.tol
     tmpDIAtable[, "rtmax"] <- tmpDIAtable[, "rt"] + rt.tol
+    combSpectra <- list()
+    combSpectra[nrow(featureTable) + 1] <- NULL 
     for (i in 1:nrow(DIAtable)) {
-      finalSpectra <- combined_Spectra@listData[[i]]
-      if(finalSpectra@peaksCount > 0){
+      currSpectra <- swath_spectra@listData[[i]]
+      if(currSpectra@peaksCount > 0){
         tmpMatch <- which((featureTable$mz > tmpDIAtable$mzmin[i]) & 
                             (featureTable$mz < tmpDIAtable$mzmax[i]) & 
                             (featureTable$rt > tmpDIAtable$rtmin[i]) & 
@@ -571,15 +573,45 @@ if(feature.annotation == TRUE){
                             (featureTable$MS2_Available == FALSE))
         if(length(tmpMatch) > 0){
           for(j in 1:length(tmpMatch)){
-            featureTable$MS2_Available[tmpMatch[j]] <- TRUE
-            MS2_Spectra_Table[nrow(MS2_Spectra_Table) + 1,] = list(tmpMatch[j], 
-                                                                   finalSpectra@precursorMz,
-                                                                   paste(round(finalSpectra@mz,4), collapse = ";"),
-                                                                   paste(finalSpectra@intensity, collapse = ";"),
-                                                                   finalSpectra@peaksCount,
-                                                                   "SWATH")
+            if(is.null(combSpectra[[tmpMatch[j]]])){
+              combSpectra[[tmpMatch[j]]] <- list(currSpectra)
+            }else{
+              combSpectra[[tmpMatch[j]]] <- c(combSpectra[[tmpMatch[j]]], currSpectra)
+            }
           }
         }
+      }
+    }
+    combined_Spectra <- foreach(t = 1:nrow(featureTable), .packages = c("xcms", "MSnbase")) %dopar% {
+      if(is.null(combSpectra[[t]])){
+        return(NULL)
+      }else{
+        if(length(combSpectra[[t]]) > 1){
+          combined <- consensusSpectrum(
+            combSpectra[[t]],
+            mzd = 0,
+            minProp = 0.1,
+            intensityFun = stats::median,
+            mzFun = stats::median,
+            ppm = 20,
+            weighted = FALSE)
+          return(combined)
+        }else{
+          combined <- combSpectra[[t]][[1]]
+          return(combined)
+        }
+      }
+    }
+    for (i in 1:nrow(featureTable)) {
+      if(is.null(combined_Spectra[[i]]) == FALSE){
+        finalSpectra <- combined_Spectra[[i]]
+        featureTable$MS2_Available[i] <- TRUE
+        MS2_Spectra_Table[nrow(MS2_Spectra_Table) + 1,] = list(i, 
+                                                               finalSpectra@precursorMz,
+                                                               paste(round(finalSpectra@mz,4), collapse = ";"),
+                                                               paste(finalSpectra@intensity, collapse = ";"),
+                                                               finalSpectra@peaksCount,
+                                                               "SWATH")
       }
     }
     
@@ -682,8 +714,8 @@ if(feature.annotation == TRUE){
       if(currSpectra@peaksCount > 0){
         tmpMatch <- which((featureTable$mz > tmpDIAtable$mzmin[i]) & 
                             (featureTable$mz < tmpDIAtable$mzmax[i]) & 
-                            (featureTable$RT > tmpDIAtable$rtmin[i]) & 
-                            (featureTable$RT < tmpDIAtable$rtmax[i]) &
+                            (featureTable$rt > tmpDIAtable$rtmin[i]) & 
+                            (featureTable$rt < tmpDIAtable$rtmax[i]) &
                             (featureTable$MS2_Available == FALSE))
         if(length(tmpMatch) > 0){
           for(j in 1:length(tmpMatch)){
@@ -939,7 +971,7 @@ if(export.mgf){
   for(y in 1:length(combined_Spectra)){
     if(is.null(combined_Spectra[[y]]) == FALSE){
       writeMgfData(combined_Spectra[[y]], con = paste0(featureTable$mz[y], "_", 
-                                                       featureTable$RT[y], "_", "DIA.mgf"))
+                                                       featureTable$rt[y], "_", "DIA.mgf"))
     }
   }
   
@@ -966,7 +998,7 @@ if(export.mgf){
         }
         finalSpectra = tmpSpectra[[currIdx]]
         writeMgfData(finalSpectra, con = paste0(featureTable$mz[i], "_", 
-                                                featureTable$RT[i], "_", "DDA.mgf"))
+                                                featureTable$rt[i], "_", "DDA.mgf"))
       }
     }
   }
