@@ -15,7 +15,7 @@ library(ProtGenerics)
 print("Finished loading packages")
 ###############################################################
 #Part 1: Parameters for feature extraction
-DDA.directory <- "E:/DaDIA_DDA"
+DDA.directory <- "E:/DaDIA_DDA/"
 DIA.directory <- "E:/DaDIA_DIA"
 cwpDDA <- CentWaveParam(ppm=10,
                         peakwidth=c(5,60),
@@ -34,7 +34,7 @@ cwpDIA <- CentWaveParam(ppm=10,
 mass.tol <- 10 #mz tolerance in ppm: used in feature dereplication and MS2 matching
 mass.const.tol <- 0.05 #mz tolerance in constant value: used in feature rescue
 rt.tol <- 60 #rt tolerance in seconds
-num.samples <- 3 #enter how many DIA samples here
+num.samples <- 1 #enter how many DIA samples here
 plot.DaDIA <- TRUE #plot DaDIA features
 plot.DaDIA.mztol <- 0.5 #DaDIA feature plotting mz window width
 plot.DaDIA.rttol <- 30 #DaDIA feature plotting rt window width
@@ -49,7 +49,7 @@ quantitative.method <- "maxo"
 ###############################################################
 #Part 2: Parameters for database search (dot product)
 feature.annotation <- TRUE #annotate DaDIA features
-db.name <- "convertedLibraryPos.msp" #annotation library name
+db.name <- "Library.msp" #annotation library name
 ms1.tol <- 0.01 #dot product calculation ms1 tolerance
 ms2.tol <- 0.02 #dot product calculation ms2 tolerance
 dot.product.threshold <- 0.1 #dot product annotation threshold
@@ -154,12 +154,32 @@ if(num.samples == 1){
   }
   inDIA.matrix <- inDIA.matrix[is.na(inDIA.matrix$mz)==FALSE,]
   xsetSWATH@peaks <- rbind(xsetSWATH@peaks, as.matrix(inDIA.matrix))
-  DaDIAtable <- rbind(DIAtable, inDIA.matrix)
-  colnames(DaDIAtable)[7] <- "Peak_area"
-  colnames(DaDIAtable)[9] <- "Peak_intensity"
-  DaDIAtable <- DaDIAtable[order(DaDIAtable[,1]),]
-  row.names(DaDIAtable) <- 1:nrow(DaDIAtable)
-  write.csv(DaDIAtable, file = "DaDIAtable.csv")
+  featureTable <- rbind(DIAtable, inDIA.matrix)
+  colnames(featureTable)[7] <- "Peak_area"
+  colnames(featureTable)[9] <- "Peak_intensity"
+  featureTable <- featureTable[order(featureTable[,1]),]
+  row.names(featureTable) <- 1:nrow(featureTable)
+  write.csv(featureTable, file = "DaDIAtable.csv")
+  
+  if(plot.DaDIA){
+    print("Plotting DaDIA features ...")
+    setwd(DIA.directory)
+    dir.create("DaDIA_EIC")
+    setwd("DaDIA_EIC")
+    for(k in 1:nrow(featureTable)){
+      rt.lower.limit <- featureTable$rt[k] - plot.DaDIA.rttol
+      rt.upper.limit <- featureTable$rt[k] + plot.DaDIA.rttol
+      mass.lower.limit <- featureTable$mz[k] - plot.DaDIA.mztol
+      mass.upper.limit <- featureTable$mz[k] + plot.DaDIA.mztol
+      png(file = paste0(featureTable$mz[k],"_", featureTable$rt[k],".png"), width = 480, height = 480)
+      eic <- plotEIC(xrawSWATH, mzrange = c(mass.lower.limit, mass.upper.limit), 
+                     rtrange = c(rt.lower.limit,rt.upper.limit))
+      dev.off()
+    }
+    print("Finished DaDIA feature plotting")
+    print(Sys.time() - start_time)
+  }
+  setwd(DIA.directory)
   
 } else if(num.samples > 1){
   #DDA guided DIA SWATH Extraction (multi-sample)
@@ -492,12 +512,12 @@ if(feature.annotation == TRUE){
     table(isolationWindowTargetMz(swath_data))
     
     #MS2 spectral assignment from DDA
-    dda_spectra <- matchMS2(dda_data, DaDIAtable, expandRt = rt.tol, expandMz = mass.const.tol, ppm = mass.tol)
-    DaDIAtable <- cbind(DaDIAtable, FALSE)
-    colnames(DaDIAtable)[ncol(DaDIAtable)] <- "MS2_Available"
+    dda_spectra <- matchMS2(dda_data, featureTable, expandRt = rt.tol, expandMz = mass.const.tol, ppm = mass.tol)
+    featureTable <- cbind(featureTable, FALSE)
+    colnames(featureTable)[ncol(featureTable)] <- "MS2_Available"
     MS2_Spectra_Table <- data.frame(matrix(ncol = 6, nrow = 0))
     colnames(MS2_Spectra_Table) <- c("ID", "PrecursorMZ", "MS2mz", "MS2int", "PeaksCount", "Source")
-    for (i in 1:nrow(DaDIAtable)) {
+    for (i in 1:nrow(featureTable)) {
       if(!is.null(dda_spectra[[i]])){
         tmpSpectra <- dda_spectra[[i]]
         for (j in 1:length(tmpSpectra)){
@@ -516,7 +536,7 @@ if(feature.annotation == TRUE){
             }
           }
           finalSpectra = tmpSpectra[[currIdx]]
-          DaDIAtable$MS2_Available[i] <- TRUE
+          featureTable$MS2_Available[i] <- TRUE
           MS2_Spectra_Table[nrow(MS2_Spectra_Table) + 1,] = list(i, 
                                                                  finalSpectra@precursorMz,
                                                                  paste(round(finalSpectra@mz,4), collapse = ";"),
@@ -533,7 +553,7 @@ if(feature.annotation == TRUE){
     swath_data <- findChromPeaksIsolationWindow(swath_data, param = cwp) 
     chromPeakData(swath_data) #lists identified peaks (both MS1 and MS2) 
     table(chromPeakData(swath_data)$isolationWindow) #count the number of chromatographic peaks identified within each isolation window
-    swath_spectra <- reconstructChromPeakSpectra(swath_data, minCor = 0.2)
+    combined_Spectra <- reconstructChromPeakSpectra(swath_data, minCor = 0.2)
     
     tmpDIAtable <- as.data.frame(chromPeaks(swath_data, msLevel = 1L))
     mz.diff <- tmpDIAtable[, "mz"] * mass.tol / 1e6 
@@ -542,16 +562,16 @@ if(feature.annotation == TRUE){
     tmpDIAtable[, "rtmin"] <- tmpDIAtable[, "rt"] - rt.tol
     tmpDIAtable[, "rtmax"] <- tmpDIAtable[, "rt"] + rt.tol
     for (i in 1:nrow(DIAtable)) {
-      finalSpectra <- swath_spectra@listData[[i]]
+      finalSpectra <- combined_Spectra@listData[[i]]
       if(finalSpectra@peaksCount > 0){
-        tmpMatch <- which((DaDIAtable$mz > tmpDIAtable$mzmin[i]) & 
-                            (DaDIAtable$mz < tmpDIAtable$mzmax[i]) & 
-                            (DaDIAtable$rt > tmpDIAtable$rtmin[i]) & 
-                            (DaDIAtable$rt < tmpDIAtable$rtmax[i]) &
-                            (DaDIAtable$MS2_Available == FALSE))
+        tmpMatch <- which((featureTable$mz > tmpDIAtable$mzmin[i]) & 
+                            (featureTable$mz < tmpDIAtable$mzmax[i]) & 
+                            (featureTable$rt > tmpDIAtable$rtmin[i]) & 
+                            (featureTable$rt < tmpDIAtable$rtmax[i]) &
+                            (featureTable$MS2_Available == FALSE))
         if(length(tmpMatch) > 0){
           for(j in 1:length(tmpMatch)){
-            DaDIAtable$MS2_Available[tmpMatch[j]] <- TRUE
+            featureTable$MS2_Available[tmpMatch[j]] <- TRUE
             MS2_Spectra_Table[nrow(MS2_Spectra_Table) + 1,] = list(tmpMatch[j], 
                                                                    finalSpectra@precursorMz,
                                                                    paste(round(finalSpectra@mz,4), collapse = ";"),
@@ -740,13 +760,13 @@ if(feature.annotation == TRUE){
   colnames(MS2_Spectra_Table)[ncol(MS2_Spectra_Table)] <- "Lib.FragmentMZ"
   MS2_Spectra_Table <- cbind(MS2_Spectra_Table, 0)
   colnames(MS2_Spectra_Table)[ncol(MS2_Spectra_Table)] <- "Lib.FragmentINT"
-
+  
   if(num.samples == 1){
     #Metabolites annotation single sample
-    DaDIAtable <- cbind(DaDIAtable, 0)
-    colnames(DaDIAtable)[ncol(DaDIAtable)] <- "Annotation"
-    DaDIAtable <- cbind(DaDIAtable, 0)
-    colnames(DaDIAtable)[ncol(DaDIAtable)] <- "DPscore"
+    featureTable <- cbind(featureTable, 0)
+    colnames(featureTable)[ncol(featureTable)] <- "Annotation"
+    featureTable <- cbind(featureTable, 0)
+    colnames(featureTable)[ncol(featureTable)] <- "DPscore"
     for(x in 1:nrow(MS2_Spectra_Table)){
       premass.Q <- MS2_Spectra_Table[x, 2] #query precursor ion mass
       ms2.Q <- data.frame(m.z = strsplit(MS2_Spectra_Table[x, 3], ";")[[1]],
@@ -785,7 +805,7 @@ if(feature.annotation == TRUE){
         MS2_Spectra_Table$Lib.PrecursorMZ[x] <- output[1,4]
         MS2_Spectra_Table$Lib.FragmentMZ[x] <- output[1,5]
         MS2_Spectra_Table$Lib.FragmentINT[x] <- output[1,6]
-        DaDIAtable[MS2_Spectra_Table$ID[x], 14] <- dot.product
+        featureTable[MS2_Spectra_Table$ID[x], 14] <- dot.product
       }
       
       # Dp score threshold, Dp score >= 0.7 , match_No >= 6 (used in GNPS identification)
@@ -798,7 +818,7 @@ if(feature.annotation == TRUE){
         feature.identity <- output[1,1] # Rank 1, std name
       } 
       MS2_Spectra_Table[x,7] <- feature.identity
-      DaDIAtable[MS2_Spectra_Table$ID[x], 13] <- feature.identity
+      featureTable[MS2_Spectra_Table$ID[x], 13] <- feature.identity
     }
     if(adduct_isotope.annotation) {
       xsa<-xsAnnotate(xsetSWATH)    
@@ -808,14 +828,14 @@ if(feature.annotation == TRUE){
       anFA <- findAdducts(anIC, polarity="positive")
       peaklist <- getPeaklist(anFA)
       peaklist <- peaklist[order(peaklist$mz),]
-      DaDIAtable <- cbind(DaDIAtable, peaklist$isotopes)
-      colnames(DaDIAtable)[ncol(DaDIAtable)] <- "Isotopes"
-      DaDIAtable <- cbind(DaDIAtable, peaklist$adduct)
-      colnames(DaDIAtable)[ncol(DaDIAtable)] <- "Adduct"
-      DaDIAtable <- cbind(DaDIAtable, as.numeric(peaklist$pcgroup))
-      colnames(DaDIAtable)[ncol(DaDIAtable)] <- "pcgroup"
+      featureTable <- cbind(featureTable, peaklist$isotopes)
+      colnames(featureTable)[ncol(featureTable)] <- "Isotopes"
+      featureTable <- cbind(featureTable, peaklist$adduct)
+      colnames(featureTable)[ncol(featureTable)] <- "Adduct"
+      featureTable <- cbind(featureTable, as.numeric(peaklist$pcgroup))
+      colnames(featureTable)[ncol(featureTable)] <- "pcgroup"
     }
-    write.csv(DaDIAtable, file = "annotated_output.csv")
+    write.csv(featureTable, file = "annotated_output.csv")
     
   } else if(num.samples > 1){
     #Metabolite annotation multi sample
@@ -1009,9 +1029,9 @@ if(MS2mirrorplot){
       mirrorPlot <- plot(spQ, spL, tolerance = ms2.tol, main = title)
       dev.off()
     }
-    print("Finished generating mirror plots")
-    print(Sys.time() - start_time)
   }
+  print("Finished generating mirror plots")
+  print(Sys.time() - start_time)
 }
 
 end_time <- Sys.time()
