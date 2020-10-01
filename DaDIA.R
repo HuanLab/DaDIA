@@ -15,8 +15,8 @@ library(ProtGenerics)
 print("Finished loading packages")
 ###############################################################
 #Part 1: Parameters for feature extraction
-DDA.directory <- "E:/SAM/DaDIA_20200807/singletest/DDA/"
-DIA.directory <- "E:/SAM/DaDIA_20200807/singletest/DIA/"
+DDA.directory <- "E:/DDA/"
+DIA.directory <- "E:/DIA/"
 cwpDDA <- CentWaveParam(ppm=10,
                         peakwidth=c(5,60),
                         mzdiff = 0.01,
@@ -49,7 +49,7 @@ quantitative.method <- "maxo"
 ###############################################################
 #Part 2: Parameters for database search (dot product)
 feature.annotation <- TRUE #annotate DaDIA features
-db.name <- "convertedLibraryPos.msp" #annotation library name
+db.name <- "Library.msp" #annotation library name
 ms1.tol <- 0.01 #dot product calculation ms1 tolerance
 ms2.tol <- 0.02 #dot product calculation ms2 tolerance
 dot.product.threshold <- 0.1 #dot product annotation threshold
