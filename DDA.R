@@ -355,7 +355,7 @@ if(perform.MS2.extraction == TRUE){
         output <- output[order(-output[,2]),]
         dot.product <- output[1,2]
         MS2_Spectra_Table[x,8] <- dot.product
-        featureTable[MS2_Spectra_Table$ID[x], 13] <- dot.product
+        DDAtable[MS2_Spectra_Table$ID[x], 13] <- dot.product
       }
       
       # Dp score threshold, Dp score >= 0.7 , match_No >= 6 (used in GNPS identification)
