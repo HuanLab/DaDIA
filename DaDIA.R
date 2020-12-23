@@ -134,10 +134,8 @@ if(num.samples == 1){
     if(mass.upper.limit > xrawSWATH@mzrange[2]) next()
     mzRange <- as.double(cbind(mass.lower.limit, mass.upper.limit))
     RTRange <- as.integer(cbind(rt.lower.limit, rt.upper.limit))
-    eeic <- getEIC(xrawSWATH, mzrange=mzRange, rtrange=RTRange) #extracted EIC object
-    
-    eic.matrix <- as.data.frame(eeic@eic[["xcmsRaw"]][[1]][,"intensity"])
-    eic.matrix <- eic.matrix[is.na(eic.matrix[,1])==FALSE,]
+    eeic <- rawEIC(xrawSWATH, mzrange=mzRange, rtrange=RTRange) #extracted EIC object
+    eic.matrix <- eeic[["intensity"]]
     peak.int <- max(eic.matrix) #find the max intensity in the EIC
     
     if(is.na(peak.int)) next
@@ -273,10 +271,8 @@ if(num.samples == 1){
       if(mass.upper.limit > xrawSWATH@mzrange[2]) next()
       mzRange <- as.double(cbind(mass.lower.limit, mass.upper.limit))
       RTRange <- as.integer(cbind(rt.lower.limit, rt.upper.limit))
-      eeic <- getEIC(xrawSWATH, mzrange=mzRange, rtrange=RTRange)
-      
-      eic.matrix <- as.data.frame(eeic@eic[["xcmsRaw"]][[1]][,"intensity"])
-      eic.matrix <- eic.matrix[is.na(eic.matrix[,1])==FALSE,]
+      eeic <- rawEIC(xrawSWATH, mzrange=mzRange, rtrange=RTRange)
+      eic.matrix <- eeic[["intensity"]]
       peak.int <- max(eic.matrix)
       if(is.na(peak.int)) next
       is.inDIA[j] <- TRUE
