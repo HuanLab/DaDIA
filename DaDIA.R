@@ -4,6 +4,7 @@
 #Copyright @ University of British Columbia
 ###############################################################
 print("Loading required packages ...")
+options(warn=-1)
 library(xcms) 
 library(MSnbase)
 library(dplyr)
