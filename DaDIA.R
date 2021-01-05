@@ -509,7 +509,7 @@ if(feature.annotation == TRUE){
     table(isolationWindowTargetMz(swath_data))
     
     #MS2 spectral assignment from DDA
-    dda_spectra <- matchMS2(dda_data, featureTable, expandRt = rt.tol, expandMz = mass.const.tol, ppm = mass.tol)
+    dda_spectra <- matchMS2(dda_data, featureTable, expandRt = 30, expandMz = 0.02, ppm = 0.01)
     featureTable <- cbind(featureTable, FALSE)
     colnames(featureTable)[ncol(featureTable)] <- "MS2_Available"
     MS2_Spectra_Table <- data.frame(matrix(ncol = 6, nrow = 0))
@@ -649,7 +649,7 @@ if(feature.annotation == TRUE){
     
     ##MS2 spectral assignment from DDA
     print("Matching MS2 spectra using DDA MS2 scans ...")
-    dda_spectra <- matchMS2multi(dda_data, featureTable, 3, expandRt = rt.tol, expandMz = mass.const.tol, ppm = mass.tol)
+    dda_spectra <- matchMS2multi(dda_data, featureTable, 3, expandRt = 30, expandMz = 0.02, ppm = 0.01)
     featureTable <- cbind(featureTable, FALSE)
     colnames(featureTable)[ncol(featureTable)] <- "MS2_Available"
     MS2_Spectra_Table <- data.frame(matrix(ncol = 6, nrow = 0))
