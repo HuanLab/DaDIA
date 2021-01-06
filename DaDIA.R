@@ -545,7 +545,7 @@ if(feature.annotation == TRUE){
     }
     
     cwp <- CentWaveParam(snthresh = 3, noise = 10, ppm = 10,
-                         peakwidth = c(5,60))
+                         peakwidth = cwpDIA@peakwidth)
     #performs a peak detection, separately for all spectra belonging to the same isolation window and adds them to the chromPeaks() matrix of the result object
     swath_data <- findChromPeaksIsolationWindow(swath_data, param = cwp) 
     chromPeakData(swath_data) #lists identified peaks (both MS1 and MS2) 
@@ -688,7 +688,7 @@ if(feature.annotation == TRUE){
     
     print("Deconvoluting SWATH MS2 scans ...")
     cwp <- CentWaveParam(snthresh = 3, noise = 10, ppm = 10,
-                         peakwidth = c(5,60))
+                         peakwidth = cwpDIA@peakwidth)
     #performs a peak detection, separately for all spectra belonging to the same isolation window and adds them to the chromPeaks() matrix of the result object
     swath_data <- findChromPeaksIsolationWindow(swath_data, param = cwp) 
     chromPeakData(swath_data) #lists identified peaks (both MS1 and MS2) 
