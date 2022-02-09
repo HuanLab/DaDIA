@@ -50,15 +50,15 @@ quantitative.method <- "maxo"
 ###############################################################
 #Part 2: Parameters for database search (dot product)
 feature.annotation <- TRUE #annotate DaDIA features
-db.name <- "Library.msp" #annotation library name
+db.name <- "convertedver15&NIST20_Pos.msp" #annotation library name
 ms1.tol <- 0.01 #dot product calculation ms1 tolerance
 ms2.tol <- 0.02 #dot product calculation ms2 tolerance
-dot.product.threshold <- 0.1 #dot product annotation threshold
+dot.product.threshold <- 0.7 #dot product annotation threshold
 match.number.threshold <- 1 #annotation match number threshold
 adduct_isotope.annotation <- TRUE #perform CAMERA annotation
-export.mgf <- TRUE #export individual MS2 spectra as .mgf
-combine.mgf <- TRUE #combine all exported .mgf files
-MS2mirrorplot <- TRUE #plot mirror plots for features with dot product larger than dot product threshold
+export.mgf <- FALSE #export individual MS2 spectra as .mgf
+combine.mgf <- FALSE #combine all exported .mgf files
+MS2mirrorplot <- FALSE #plot mirror plots for features with dot product larger than dot product threshold
 ###############################################################
 DIA.unique <- 1 #do not change
 DDA.aid <- 2 #do not change
@@ -810,6 +810,12 @@ if(feature.annotation == TRUE){
         if(is.null(database[[i]]$PrecursorMZ)==TRUE) next # no precursor mass
         
         premass.L <- database[[i]]$PrecursorMZ # database precursor
+        
+        if(!is.numeric(premass.L)){
+          premass.L <- strsplit(premass.L[n:(length(premass.L))],',')[[length(strsplit(premass.L[n:(length(premass.L))],','))]][[1]]
+          premass.L <- as.numeric(premass.L)
+        }       # only use the last precursor mz if there are more than one
+        
         if(abs(premass.L-premass.Q) > ms1.tol) next # precursor filter
         
         ms2.L <- as.data.frame(database[[i]]$pspectrum) # database spectrum
@@ -854,7 +860,7 @@ if(feature.annotation == TRUE){
       anF <- groupFWHM(xsa, perfwhm = 0.6)
       anI <- findIsotopes(anF, mzabs = 0.01)
       anIC <- groupCorr(anI, cor_eic_th = 0.75)
-      anFA <- findAdducts(anIC, polarity="positive")
+      anFA <- findAdducts(anIC, polarity="negative")
       peaklist <- getPeaklist(anFA)
       peaklist <- peaklist[order(peaklist$mz),]
       featureTable <- cbind(featureTable, peaklist$isotopes)
@@ -888,9 +894,18 @@ if(feature.annotation == TRUE){
         if(is.null(database[[i]]$PrecursorMZ)==TRUE) next # no precursor mass
         
         premass.L <- database[[i]]$PrecursorMZ # database precursor
+        
+        if(!is.numeric(premass.L)){
+          premass.L <- strsplit(premass.L[n:(length(premass.L))],',')[[length(strsplit(premass.L[n:(length(premass.L))],','))]][[1]]
+          premass.L <- as.numeric(premass.L)
+        }       # only use the last precursor mz if there are more than one
+        
         if(abs(premass.L-premass.Q) > ms1.tol) next # precursor filter
         
         ms2.L <- as.data.frame(database[[i]]$pspectrum) # database spectrum
+        ms2.L$mz <- as.numeric(as.character(ms2.L$mz))
+        ms2.L$intensity <- as.numeric(as.character(ms2.L$intensity))
+        ms2.L$intensity[is.na(ms2.L$intensity)] <- 0
         name.L <- database[[i]]$Name
         
         output[h,1] <- name.L
@@ -945,7 +960,7 @@ if(feature.annotation == TRUE){
       anF <- groupFWHM(xsa, perfwhm = 0.6)
       anI <- findIsotopes(anF, mzabs = 0.01)
       anIC <- groupCorr(anI, cor_eic_th = 0.75)
-      anFA <- findAdducts(anIC, polarity="positive")
+      anFA <- findAdducts(anIC, polarity="negative")
       peaklist <- getPeaklist(anFA)
       peaklist <- peaklist[order(peaklist$mz),]
       featureTable <- cbind(featureTable, peaklist$isotopes)
